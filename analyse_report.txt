@@ -1,0 +1,13 @@
+RAPPORT D'ANALYSE VIDÉO
+======================================================================
+Source: IMG_0006.MOV
+Frames analysées: 33
+Mouvements: 4
+Changements BG: 0
+Stabilité: 100.0%
+
+MOUVEMENTS DÉTAILLÉS:
+- Bas (frames 5-65, 2.00s)
+- Gauche (frames 70-75, 0.17s)
+- Bas (frames 80-155, 2.50s)
+- Haut (frames 160-167, 0.23s)

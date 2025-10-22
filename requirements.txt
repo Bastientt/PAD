@@ -1,0 +1,43 @@
+# ============================================
+# REQUIREMENTS.TXT - Détection PAD Vidéo
+# ============================================
+
+# === Vision par Ordinateur ===
+opencv-python==4.8.1.78
+opencv-contrib-python==4.8.1.78
+
+# === Détection d'Objets (YOLO) ===
+ultralytics==8.0.227
+
+# === Analyse Faciale ===
+mediapipe==0.10.8
+deepface==0.0.79
+
+# === Deep Learning Backend ===
+tensorflow==2.15.0
+# tensorflow-macos==2.15.0  # Décommenter pour Mac M1/M2
+# tensorflow-metal==1.1.0   # Décommenter pour Mac M1/M2
+
+# === Calculs Numériques ===
+numpy==1.24.3
+scipy==1.11.4
+
+# === Traitement d'Images ===
+Pillow==10.1.0
+
+# === Gestion des Données ===
+pandas==2.1.4
+
+# === Visualisation (Optionnel) ===
+matplotlib==3.8.2
+
+# === Utilitaires ===
+tqdm==4.66.1
+
+# === Accélération GPU (Optionnel - PyTorch) ===
+# torch==2.1.1
+# torchvision==0.16.1
+# torchaudio==2.1.1
+
+# === Autres Dépendances ===
+protobuf==3.20.3
