@@ -1,50 +1,108 @@
-# Welcome to your Expo app 👋
+# PAD – Mobile Identity Verification Application
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Overview
 
-## Get started
+**PAD (Personal Authentication & Detection)** is a mobile application developed with **React Native** and **Expo**.  
+It provides a secure, real-time identity verification process through facial recognition, video capture, and liveness detection.  
+The goal is to offer a smooth and reliable user experience for biometric verification while ensuring data security and GDPR compliance.
 
-1. Install dependencies
+---
 
+## Key Features
+
+- **Identity Verification Flow**  
+  Step-by-step guided video capture and automated upload to the backend for analysis.
+
+- **Real-Time Communication**  
+  WebSocket-based communication for instant feedback during recording and upload.
+
+- **Result Dashboard**  
+  Displays the verification outcome with confidence levels and detailed metrics.
+
+- **Modern and Reusable UI**  
+  Clean React Native interface with reusable themed components and responsive layouts.
+
+- **Security and Compliance**  
+  End-to-end encrypted data transmission and GDPR-compliant user data management.
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|:------|:------------|
+| Framework | React Native (Expo) |
+| Language | TypeScript |
+| Navigation | Expo Router |
+| Video Processing | Expo Camera, Expo AV |
+| Real-Time Communication | WebSocket hooks (`useWebSocketUpload`) |
+| UI Components | Custom modular React Native components |
+
+---
+
+## Project Structure
+
+```
+ui-frontend/
+├── app/
+│   ├── (tabs)/
+│   │   ├── index.tsx        → Home screen
+│   │   ├── upload.tsx       → Video recording and upload interface
+│   │   └── result.tsx       → Verification results screen
+│   └── _layout.tsx          → Application layout and navigation
+├── components/
+│   ├── video/               → Video recorder and preview components
+│   ├── upload/              → Upload progress and status modules
+│   ├── result/              → Result and confidence meter components
+│   └── ui/                  → Generic UI elements (buttons, cards, etc.)
+├── hooks/                   → Custom hooks (e.g., WebSocket management)
+├── assets/                  → Icons, images, and static media
+└── constants/               → Themes and shared configurations
+```
+
+---
+
+## Installation and Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Bastientt/PAD.git
+   cd PAD
+   git checkout ui-frontend
+   ```
+
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Start the development server**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Run the application**
+   - Scan the QR code displayed in the terminal using **Expo Go** (Android/iOS), or  
+   - Press `a` to launch the Android emulator.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Usage
 
-## Get a fresh project
+1. **Home Screen** – Introduction and navigation entry point.  
+2. **Upload Screen** – Record a video following the on-screen instructions.  
+3. **Result Screen** – View the verification result and confidence metrics.
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
-```
+## Contributors
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- Ayman Chergui
+- Badr Moussaoui
+- Bastien SCHNEIDER
+- Florian SANANES
+- Ranya AMARA
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## License
