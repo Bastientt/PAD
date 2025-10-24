@@ -2,7 +2,7 @@
 
 ## Overview
 
-**PAD (Personal Authentication & Detection)** is a mobile application developed with **React Native** and **Expo**.  
+**PAD (Mobile Identity Verification Application)** is a mobile application developed with **React Native** and **Expo**.  
 It provides a secure, real-time identity verification process through facial recognition, video capture, and liveness detection.  
 The goal is to offer a smooth and reliable user experience for biometric verification while ensuring data security and GDPR compliance.
 
