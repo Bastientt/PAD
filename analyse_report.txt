@@ -1,13 +1,28 @@
-RAPPORT D'ANALYSE VIDÉO
+RAPPORT D'ANALYSE PAD
 ======================================================================
-Source: IMG_0006.MOV
-Frames analysées: 33
-Mouvements: 4
-Changements BG: 0
-Stabilité: 100.0%
 
-MOUVEMENTS DÉTAILLÉS:
-- Bas (frames 5-65, 2.00s)
-- Gauche (frames 70-75, 0.17s)
-- Bas (frames 80-155, 2.50s)
-- Haut (frames 160-167, 0.23s)
+VIDEO: IMG_0006.MOV
+Total frames: 167
+Frames analysees (BG/Sujet): 15
+Frames analysees (Mouvements): 83
+Duree: 5.57s
+
+MOUVEMENTS: 4
+──────────────────────────────────────────────────────────────────────
+ 1. DROITE | Frames    20-   62 |  1.40s |  67.5px
+ 2. GAUCHE | Frames    66-  102 |  1.20s |  82.3px
+ 3.    BAS | Frames   118-  148 |  1.00s |  45.2px
+ 4.   HAUT | Frames   150-  167 |  0.57s | 102.7px
+
+ARRIERE-PLAN:
+Changements: 1
+Stabilite: 93.3%
+Validation: OK
+
+SUJET:
+Changements couleurs: 0
+Changements texture: 0
+Coherence: 100.0%
+Validation: OK
+
+VALIDATION GLOBALE: OK
