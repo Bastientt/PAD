@@ -100,7 +100,7 @@ class VideoAnalyzer:
         self.last_movement_frame = None
         self.frames_without_movement = 0
         
-        # NOUVEAU: Calibration position neutre
+        # Calibration position neutre
         self.position_neutre = None
         self.calibration_positions = []
         self.is_calibrated = False
@@ -424,7 +424,7 @@ class VideoAnalyzer:
         }
     
     def calibrate_neutral_position(self, position):
-        """NOUVEAU: Établit la position neutre de référence"""
+        """Établit la position neutre de référence"""
         self.calibration_positions.append(position)
         
         if len(self.calibration_positions) >= Config.CALIBRATION_FRAMES:
