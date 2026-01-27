@@ -6,12 +6,23 @@ import os
 from sklearn.cluster import KMeans
 from concurrent.futures import ThreadPoolExecutor
 import time
+import requests
+import tempfile
+import shutil
+import boto3
+from botocore.client import Config as BotoConfig
 
 # ==================== CONFIGURATION ====================
 class Config:
-    VIDEO_SOURCE = 'IMG_0006.MOV'
+    MINIO_ENDPOINT = "" # ip minio
+    MINIO_ACCESS_KEY = "access_key" # à modifier
+    MINIO_SECRET_KEY = "secret_key" # à modifier
+    MINIO_BUCKET_NAME = "videos-pad" #à modifier
+    MINIO_SECURE = False # TRUE si HTTPS
+    WATCH_INTERVAL = 10  
     
-    # Seuils de détection
+    LOCAL_FILE_OVERRIDE = None 
+
     SEUIL_SIMILARITE_BG = 0.85
     SEUIL_MOUVEMENT_HORIZONTAL = 10
     SEUIL_MOUVEMENT_VERTICAL = 12
@@ -19,24 +30,19 @@ class Config:
     SEUIL_COULEUR_DOMINANTE = 0.65
     SEUIL_TEXTURE = 0.70
     
-    # Optimisations vitesse
-    ANALYSE_EVERY_N_FRAMES = 10
+    ANALYSE_EVERY_N_FRAMES = 5
     DETECT_MOVEMENT_EVERY_N = 2
     RESIZE_SCALE = 0.5
     GRILLE_ZONES = 2
     HIST_BINS = 16
     
-    # Zones d'analyse
     MARGE_EXCLUSION_VISAGE = 200
     
-    # Vêtements
     ZONE_VETEMENTS_RATIO = 0.25
     NB_COULEURS_DOMINANTES = 2
     
-    # Détection MediaPipe
     MIN_DETECTION_CONFIDENCE = 0.5
     
-    # Mouvements - PARAMÈTRES OPTIMISÉS
     SMOOTHING_WINDOW = 4
     MIN_MOVEMENT_FRAMES = 5
     MIN_MOVEMENT_DISTANCE = 20
@@ -44,23 +50,22 @@ class Config:
     MAX_GAP_BETWEEN_MOVEMENTS = 9
     CALIBRATION_FRAMES = 3
     
-    # Affichage
     SHOW_WINDOWS = True
     SAVE_REPORT = True
     
-    # Parallélisation
     USE_THREADING = True
 
-
-# ==================== INITIALISATION MEDIAPIPE ====================
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
-
 class VideoAnalyzer:
-    def __init__(self, video_source):
-        self.video_source = video_source
+    def __init__(self, video_source, is_url=False):
+        self.original_source_name = video_source
+        self.is_url = is_url
+        self.video_path = video_source
+        self.temp_file = None
+        
         self.cap = None
         self.face_mesh = mp_face_mesh.FaceMesh(
             static_image_mode=False,
@@ -74,7 +79,6 @@ class VideoAnalyzer:
         else:
             self.executor = None
         
-        # Statistiques vidéo
         self.frame_count = 0
         self.frames_analysees = 0
         self.total_frames = 0
@@ -83,12 +87,10 @@ class VideoAnalyzer:
         self.fps = 0
         self.start_time = None
         
-        # Arrière-plan
         self.hist_references = None
         self.changements_bg = 0
         self.zones_instables = defaultdict(int)
         
-        # Mouvements - AMÉLIORATION AVEC CALIBRATION
         self.position_precedente = None
         self.direction_precedente = None
         self.frame_debut_mouvement = None
@@ -100,12 +102,10 @@ class VideoAnalyzer:
         self.last_movement_frame = None
         self.frames_without_movement = 0
         
-        # Calibration position neutre
         self.position_neutre = None
         self.calibration_positions = []
         self.is_calibrated = False
         
-        # Sujet
         self.reference_couleurs = None
         self.reference_texture = None
         self.reference_clothing_hist = None
@@ -121,15 +121,37 @@ class VideoAnalyzer:
         self.last_sim_text = 1.0
         self.last_clothing_bbox = None
     
-    # ==================== CHARGEMENT VIDEO ====================
+    def download_video(self):
+        print(f"Téléchargement de la vidéo depuis : {self.original_source_name}")
+        try:
+            suffix = os.path.splitext(self.original_source_name)[1]
+            if not suffix: suffix = '.mp4'
+            
+            self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            
+            with requests.get(self.original_source_name, stream=True) as r:
+                r.raise_for_status()
+                with open(self.temp_file.name, 'wb') as f:
+                    shutil.copyfileobj(r.raw, f)
+            
+            self.video_path = self.temp_file.name
+            print(f"Téléchargement terminé. Fichier temporaire : {self.video_path}")
+            return True
+        except Exception as e:
+            print(f"Erreur lors du téléchargement : {e}")
+            return False
+
     def load_video(self):
-        """Charge la vidéo et extrait ses propriétés"""
-        print("Chargement de la video...")
+        if self.is_url:
+            if not self.download_video():
+                raise RuntimeError("Échec du téléchargement de la vidéo")
+
+        print(f"Chargement du fichier : {self.video_path}")
         
-        if not os.path.exists(self.video_source):
-            raise FileNotFoundError(f"Video non trouvee: {self.video_source}")
+        if not os.path.exists(self.video_path):
+            raise FileNotFoundError(f"Video non trouvee: {self.video_path}")
         
-        self.cap = cv2.VideoCapture(self.video_source)
+        self.cap = cv2.VideoCapture(self.video_path)
         
         if not self.cap.isOpened():
             raise RuntimeError("Impossible d'ouvrir la video")
@@ -152,9 +174,7 @@ class VideoAnalyzer:
         print(f"  - Gap toléré: {Config.MAX_GAP_BETWEEN_MOVEMENTS} frames")
         print(f"  - Redimensionnement: {Config.RESIZE_SCALE*100:.0f}%\n")
     
-    # ==================== DETECTION VISAGE ====================
     def get_face_bbox(self, face_landmarks, frame_shape):
-        """Calcule la bounding box du visage"""
         h, w = frame_shape[:2]
         
         x_coords = [lm.x * w for lm in face_landmarks.landmark]
@@ -167,9 +187,7 @@ class VideoAnalyzer:
         
         return (x_min, y_min, x_max, y_max)
     
-    # ==================== ANALYSE ARRIERE-PLAN ====================
     def create_analysis_zones(self, frame_shape, face_bbox):
-        """Crée les zones d'analyse en excluant le visage"""
         h, w = frame_shape[:2]
         zones = []
         
@@ -204,7 +222,6 @@ class VideoAnalyzer:
         return zones
     
     def extract_histogram_from_zones(self, frame, zones):
-        """Extrait histogrammes de couleur des zones"""
         histograms = []
         
         for (x1, y1, x2, y2) in zones:
@@ -225,7 +242,6 @@ class VideoAnalyzer:
         return histograms if histograms else None
     
     def compare_histograms(self, hist1, hist2):
-        """Compare deux histogrammes"""
         if hist1 is None or hist2 is None:
             return 0.0
         
@@ -242,7 +258,6 @@ class VideoAnalyzer:
             return 0.0
     
     def analyze_background_stability(self, frame, face_bbox):
-        """Analyse la stabilité de l'arrière-plan"""
         zones = self.create_analysis_zones(frame.shape, face_bbox)
         
         if not zones:
@@ -272,9 +287,7 @@ class VideoAnalyzer:
         
         return len(zones_changees) == 0, zones_changees
     
-    # ==================== ANALYSE SUJET ====================
     def extract_clothing_region(self, frame, face_bbox):
-        """Extrait la région des vêtements"""
         h, w = frame.shape[:2]
         fx_min, fy_min, fx_max, fy_max = face_bbox
         
@@ -293,7 +306,6 @@ class VideoAnalyzer:
         return None, None
     
     def extract_dominant_colors(self, roi, n_colors=2):
-        """Extrait les couleurs dominantes"""
         if roi is None or roi.size == 0:
             return None
         
@@ -318,7 +330,6 @@ class VideoAnalyzer:
             return None
     
     def calculate_texture_histogram(self, roi):
-        """Calcule l'histogramme de texture"""
         if roi is None or roi.size == 0:
             return None
         
@@ -341,7 +352,6 @@ class VideoAnalyzer:
         return hist
     
     def compare_colors(self, colors1, colors2):
-        """Compare deux ensembles de couleurs"""
         if colors1 is None or colors2 is None:
             return 0.0
         
@@ -357,7 +367,6 @@ class VideoAnalyzer:
         return max(0.0, similarity)
     
     def analyze_subject_consistency(self, frame, face_bbox):
-        """Analyse la cohérence du sujet"""
         clothing_roi, clothing_bbox = self.extract_clothing_region(frame, face_bbox)
         
         if clothing_roi is None:
@@ -389,9 +398,7 @@ class VideoAnalyzer:
         
         return coherent, 1.0, similarite_couleur, similarite_texture, clothing_bbox
     
-    # ==================== DETECTION MOUVEMENTS AVEC CALIBRATION ====================
     def get_head_position(self, face_landmarks, frame_shape):
-        """Calcule la position 3D de la tête"""
         h, w = frame_shape[:2]
         
         nose_tip = face_landmarks.landmark[4]
@@ -424,11 +431,9 @@ class VideoAnalyzer:
         }
     
     def calibrate_neutral_position(self, position):
-        """Établit la position neutre de référence"""
         self.calibration_positions.append(position)
         
         if len(self.calibration_positions) >= Config.CALIBRATION_FRAMES:
-            # Calculer moyenne des positions de calibration
             self.position_neutre = {
                 'horizontal_offset': np.mean([p['horizontal_offset'] for p in self.calibration_positions]),
                 'vertical_offset': np.mean([p['vertical_offset'] for p in self.calibration_positions]),
@@ -439,7 +444,6 @@ class VideoAnalyzer:
             print(f"   Position neutre: H={self.position_neutre['horizontal_offset']:.1f}px, V={self.position_neutre['vertical_offset']:.1f}px\n")
     
     def smooth_position(self, position):
-        """Lisse la position"""
         self.historique_positions.append(position)
         
         if len(self.historique_positions) > Config.SMOOTHING_WINDOW:
@@ -456,31 +460,26 @@ class VideoAnalyzer:
         }
     
     def detect_head_movement(self, face_landmarks, frame_shape):
-        """Détecte mouvements 3D par rapport à la position neutre"""
         position = self.get_head_position(face_landmarks, frame_shape)
         
-        # Phase de calibration
         if not self.is_calibrated:
             self.calibrate_neutral_position(position)
             return None, 0, position
         
         position_lissee = self.smooth_position(position)
         
-        # AMÉLIORATION: Calculer offset par rapport à la position NEUTRE
         horizontal_offset = position_lissee['horizontal_offset'] - self.position_neutre['horizontal_offset']
         vertical_offset = position_lissee['vertical_offset'] - self.position_neutre['vertical_offset']
         
         distance_h = abs(horizontal_offset)
         distance_v = abs(vertical_offset)
         
-        # Vérifier si position stable
         if distance_h < Config.SEUIL_POSITION_STABLE and distance_v < Config.SEUIL_POSITION_STABLE:
             return None, 0, position_lissee
         
         direction = None
         distance = 0
         
-        # Priorité au mouvement le plus prononcé
         if distance_h > Config.SEUIL_MOUVEMENT_HORIZONTAL and distance_h > distance_v:
             if horizontal_offset > 0:
                 direction = "DROITE"
@@ -498,13 +497,10 @@ class VideoAnalyzer:
         return direction, distance, position_lissee
     
     def track_movement_sequence(self, direction, frame_num, position):
-        """Suit les séquences de mouvements avec tolérance aux gaps"""
         if direction == self.direction_precedente:
-            # Continuation du mouvement
             self.frames_consecutifs_direction += 1
             self.frames_without_movement = 0
             
-            # Calculer distance parcourue par rapport à position neutre
             if self.position_debut_mouvement and self.position_neutre:
                 if direction in ['GAUCHE', 'DROITE']:
                     offset_debut = self.position_debut_mouvement['horizontal_offset'] - self.position_neutre['horizontal_offset']
@@ -518,19 +514,15 @@ class VideoAnalyzer:
                 self.distance_totale_mouvement = max(self.distance_totale_mouvement, dist)
                 
         elif direction is None and self.direction_precedente is not None:
-            # Gap dans le mouvement
             self.frames_without_movement += 1
             
-            # Si gap trop long, finaliser le mouvement
             if self.frames_without_movement >= Config.MAX_GAP_BETWEEN_MOVEMENTS:
                 self._finalize_movement(frame_num)
                 
         else:
-            # Changement de direction
             if self.direction_precedente is not None:
                 self._finalize_movement(frame_num)
             
-            # Démarrer nouveau mouvement
             if direction is not None:
                 self.direction_precedente = direction
                 self.frame_debut_mouvement = frame_num
@@ -540,13 +532,11 @@ class VideoAnalyzer:
                 self.frames_without_movement = 0
     
     def _finalize_movement(self, frame_num):
-        """Finalise un mouvement détecté"""
         if self.frame_debut_mouvement is None:
             return
             
         duree_frames = frame_num - self.frame_debut_mouvement - (self.frames_without_movement * Config.DETECT_MOVEMENT_EVERY_N)
         
-        # VALIDATION : durée + distance
         if (duree_frames >= Config.MIN_MOVEMENT_FRAMES and 
             self.distance_totale_mouvement >= Config.MIN_MOVEMENT_DISTANCE):
             
@@ -558,7 +548,6 @@ class VideoAnalyzer:
             }
             self.mouvements_detectes.append(mouvement)
         
-        # Reset
         self.direction_precedente = None
         self.frame_debut_mouvement = None
         self.frames_consecutifs_direction = 0
@@ -566,9 +555,7 @@ class VideoAnalyzer:
         self.distance_totale_mouvement = 0
         self.frames_without_movement = 0
     
-    # ==================== AFFICHAGE ====================
     def draw_analysis(self, frame, face_bbox, direction, distance):
-        """Dessine les éléments d'analyse sur la frame"""
         display = frame.copy()
         
         fx_min, fy_min, fx_max, fy_max = face_bbox
@@ -588,7 +575,6 @@ class VideoAnalyzer:
                    (10, y_offset), font, font_scale, (255, 255, 255), thickness)
         y_offset += 30
         
-        # Indicateur de calibration
         if not self.is_calibrated:
             calib_text = f"CALIBRATION: {len(self.calibration_positions)}/{Config.CALIBRATION_FRAMES}"
             cv2.putText(display, calib_text, 
@@ -636,9 +622,7 @@ class VideoAnalyzer:
         
         return display
     
-    # ==================== TRAITEMENT PRINCIPAL ====================
     def process(self):
-        """Traitement principal de la vidéo"""
         print("Analyse en cours...\n")
         self.start_time = time.time()
         
@@ -646,7 +630,6 @@ class VideoAnalyzer:
             ret, frame = self.cap.read()
             
             if not ret:
-                # Finaliser dernier mouvement si nécessaire
                 if self.direction_precedente is not None:
                     self._finalize_movement(self.frame_count)
                 break
@@ -669,16 +652,14 @@ class VideoAnalyzer:
             face_landmarks = results.multi_face_landmarks[0]
             face_bbox = self.get_face_bbox(face_landmarks, frame_resized.shape)
             
-            # DETECTION MOUVEMENTS (avec calibration)
             direction = None
             distance = 0
             position = None
             if self.frame_count % Config.DETECT_MOVEMENT_EVERY_N == 0:
                 direction, distance, position = self.detect_head_movement(face_landmarks, frame_resized.shape)
-                if self.is_calibrated:  # Seulement après calibration
+                if self.is_calibrated:
                     self.track_movement_sequence(direction, self.frame_count, position)
             
-            # ANALYSES BG et SUJET
             if self.frame_count % Config.ANALYSE_EVERY_N_FRAMES == 0:
                 self.frames_analysees += 1
                 
@@ -719,9 +700,7 @@ class VideoAnalyzer:
         print(f"\nTemps d'analyse: {elapsed_time:.2f}s")
         print(f"Vitesse: {self.frame_count/elapsed_time:.1f} fps (traitement)")
     
-    # ==================== RAPPORT ====================
     def generate_report(self):
-        """Génère le rapport final"""
         print("\n" + "="*70)
         print("RAPPORT D'ANALYSE PAD")
         print("="*70)
@@ -737,7 +716,7 @@ class VideoAnalyzer:
         validation_sujet = taux_coherence >= 80
         validation_globale = validation_bg and validation_sujet
         
-        print(f"\nVIDEO: {self.video_source}")
+        print(f"\nVIDEO: {self.original_source_name}")
         print(f"Total frames: {self.total_frames}")
         print(f"Frames analysees (BG/Sujet): {self.frames_analysees}")
         print(f"Frames analysees (Mouvements): {self.frame_count // Config.DETECT_MOVEMENT_EVERY_N}")
@@ -772,11 +751,18 @@ class VideoAnalyzer:
         print(f"{'='*70}")
         
         if Config.SAVE_REPORT:
-            with open('analyse_report.txt', 'w', encoding='utf-8') as f:
+            safe_name = os.path.basename(self.original_source_name)
+            if self.is_url:
+                 safe_name = "".join([c for c in safe_name if c.isalnum() or c in (' ', '.', '_')]).rstrip()
+                 if not safe_name: safe_name = "video_url"
+            
+            report_filename = f'analyse_report_{safe_name}.txt'
+            
+            with open(report_filename, 'w', encoding='utf-8') as f:
                 f.write("RAPPORT D'ANALYSE PAD\n")
                 f.write("="*70 + "\n\n")
                 
-                f.write(f"VIDEO: {self.video_source}\n")
+                f.write(f"VIDEO: {self.original_source_name}\n")
                 f.write(f"Total frames: {self.total_frames}\n")
                 f.write(f"Frames analysees (BG/Sujet): {self.frames_analysees}\n")
                 f.write(f"Frames analysees (Mouvements): {self.frame_count // Config.DETECT_MOVEMENT_EVERY_N}\n")
@@ -803,32 +789,69 @@ class VideoAnalyzer:
                 
                 f.write(f"\nVALIDATION GLOBALE: {'OK' if validation_globale else 'FAIL'}\n")
             
-            print("\nRapport sauvegarde dans 'analyse_report.txt'")
+            print(f"\nRapport sauvegarde dans '{report_filename}'")
     
     def cleanup(self):
-        """Nettoyage des ressources"""
         if self.cap:
             self.cap.release()
         if self.executor:
             self.executor.shutdown(wait=True)
         cv2.destroyAllWindows()
+        
+        if self.temp_file and os.path.exists(self.temp_file.name):
+            try:
+                self.temp_file.close()
+                os.unlink(self.temp_file.name)
+                print("Fichier temporaire supprimé.")
+            except Exception as e:
+                print(f"Erreur suppression fichier temp: {e}")
 
-
-# ==================== MAIN ====================
 def main():
-    analyzer = VideoAnalyzer(Config.VIDEO_SOURCE)
-    
-    try:
-        analyzer.load_video()
-        analyzer.process()
-        analyzer.generate_report()
-    except Exception as e:
-        print(f"\nERREUR: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        analyzer.cleanup()
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=f"{'https' if Config.MINIO_SECURE else 'http'}://{Config.MINIO_ENDPOINT}",
+        aws_access_key_id=Config.MINIO_ACCESS_KEY,
+        aws_secret_access_key=Config.MINIO_SECRET_KEY,
+        config=BotoConfig(signature_version='s3v4'),
+        region_name='us-east-1'
+    )
 
+    deja_traites = set()
+    print(f"--- Surveillance active du bucket : {Config.MINIO_BUCKET_NAME} ---")
+
+    try:
+        while True:
+            response = s3_client.list_objects_v2(Bucket=Config.MINIO_BUCKET_NAME)
+            
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    file_key = obj['Key']
+                    
+                    if file_key not in deja_traites and file_key.lower().endswith(('.mp4', '.mov', '.avi')):
+                        print(f"\n[NOUVEAU FICHIER] Détection de : {file_key}")
+                        
+                        url_presignee = s3_client.generate_presigned_url(
+                            'get_object',
+                            Params={'Bucket': Config.MINIO_BUCKET_NAME, 'Key': file_key},
+                            ExpiresIn=3600
+                        )
+
+                        analyzer = VideoAnalyzer(url_presignee, is_url=True)
+                        
+                        try:
+                            analyzer.load_video()
+                            analyzer.process()
+                            analyzer.generate_report()
+                            deja_traites.add(file_key)  # Marquer comme fait
+                        except Exception as e:
+                            print(f"Erreur lors du traitement de {file_key}: {e}")
+                        finally:
+                            analyzer.cleanup()
+            
+            time.sleep(Config.WATCH_INTERVAL)
+
+    except KeyboardInterrupt:
+        print("\nArrêt manuel du script.")
 
 if __name__ == "__main__":
     main()
