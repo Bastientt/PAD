@@ -1,0 +1,51 @@
+services:
+  # --- STOCKAGE S3 ---
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+
+  # --- CACHE & RATE LIMIT ---
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  # --- BACKEND RUST ---
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=eu-west-1
+    volumes:
+      - ./backend/key:/app/key
+    depends_on:
+      - redis
+      - minio
+
+  # --- FRONTEND REACT NATIVE ---
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+
+  ia_worker:
+    build: ./ia_worker
+    depends_on:
+      - redis
+      - minio
+    environment:
+      - REDIS_URL=redis://redis:6379
