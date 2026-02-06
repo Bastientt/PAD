@@ -1,0 +1,21 @@
+[package]
+name = "mon_projet_ws"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.4"
+actix-web-actors = "4.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+jsonwebtoken = "9.2"
+chrono = "0.4"
+rand = "0.8"
+futures-util = "0.3"
+actix = "0.13" 
+redis = { version = "0.27", features = ["tokio-comp"] }
+#MINIO
+tokio = { version = "1", features = ["full"] }
+aws-config = { version = "1.5", features = ["behavior-version-latest"] }
+aws-sdk-s3 = { version = "1.5", features = ["http-1x"] }
+actix-cors = "0.7"
