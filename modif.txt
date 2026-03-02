@@ -1,0 +1,32 @@
+r = redis.Redis(host=Config.REDIS_HOST, port=6379, decode_responses=True)
+s3 = boto3.client('s3', 
+    endpoint_url="http://minio:9000",
+    aws_access_key_id="minioadmin",
+    aws_secret_access_key="minioadmin",
+    config=BotoConfig(signature_version='s3v4'),
+    region_name='eu-west-1'
+)
+
+def start():
+    pubsub = r.pubsub()
+    pubsub.subscribe('ia_jobs')
+    print("🚀 Worker IA 'Unbreakable' Ready")
+
+    for msg in pubsub.listen():
+        if msg['type'] != 'message': continue
+        job = json.loads(msg['data'])
+        filename = job['filename']
+        path = f"/tmp/{filename}"
+        
+        try:
+            s3.download_file("pad-bucket", filename, path)
+            ok, seq = UnbreakableAnalyzer(path, job.get('challenge', '')).analyze()
+            
+            res = {"user_id": job['user_id'], "status": "IA_SUCCESS" if ok else "IA_ERROR", "filename": filename}
+            r.publish('ia_results', json.dumps(res))
+            print(f"📤 Final: {ok} | Seq: {seq}")
+        except Exception as e: print(f"❌ Error: {e}")
+        finally: 
+            if os.path.exists(path): os.remove(path)
+
+if __name__ == "__main__": start()
