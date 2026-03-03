@@ -44,8 +44,20 @@ const MAPPING = {
   'lock.fill': 'lock',
   'doc.text.fill': 'description',
 
-  // ℹ️ Infos tab (NEW)
+  // Infos tab (NEW)
   'info.circle.fill': 'info-outline',
+
+  // About
+  'shield.lefthalf.filled': 'security',
+
+  // Team
+  'person.3.sequence.fill': 'groups',
+
+  // Member
+  'person.fill': 'person',
+
+  // Owners
+  'crown.fill': 'workspace-premium',
 
 } as IconMapping;
 

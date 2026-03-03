@@ -29,16 +29,16 @@ export default function HomeScreen() {
           />
         </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          PAD
-        </ThemedText>
+        {/* Header */}
+        <View style={styles.header}>
+          <ThemedText type="title" style={styles.title}>
+            PAD
+          </ThemedText>
 
-        <ThemedText style={styles.subtitle}>
-          Système de détection biométrique sécurisé
-        </ThemedText>
-      </View>
+          <ThemedText style={styles.subtitle}>
+            Secure biometric detection system
+          </ThemedText>
+        </View>
 
         {/* Features */}
         <View style={styles.featuresGrid}>
@@ -48,7 +48,7 @@ export default function HomeScreen() {
               <IconSymbol name="person.crop.circle.fill" size={28} color="#ffffff" />
             </View>
             <ThemedText style={styles.featureTitle}>Face ID</ThemedText>
-            <ThemedText style={styles.featureDesc}>Reconnaissance facial</ThemedText>
+            <ThemedText style={styles.featureDesc}>Facial recognition</ThemedText>
           </Card>
 
           <Card style={styles.featureCard}>
@@ -56,23 +56,23 @@ export default function HomeScreen() {
               <IconSymbol name="shield.fill" size={28} color="#ffffff" />
             </View>
             <ThemedText style={styles.featureTitle}>Anti-spoof</ThemedText>
-            <ThemedText style={styles.featureDesc}>Protection fraude</ThemedText>
+            <ThemedText style={styles.featureDesc}>Fraud protection</ThemedText>
           </Card>
 
           <Card style={styles.featureCard}>
             <View style={styles.iconCenter}>
               <IconSymbol name="lock.fill" size={28} color="#ffffff" />
             </View>
-            <ThemedText style={styles.featureTitle}>Chiffrement</ThemedText>
-            <ThemedText style={styles.featureDesc}>Sécurité totale</ThemedText>
+            <ThemedText style={styles.featureTitle}>Encryption</ThemedText>
+            <ThemedText style={styles.featureDesc}>Total security</ThemedText>
           </Card>
 
           <Card style={styles.featureCard}>
             <View style={styles.iconCenter}>
               <IconSymbol name="doc.text.fill" size={28} color="#ffffff" />
             </View>
-            <ThemedText style={styles.featureTitle}>RGPD</ThemedText>
-            <ThemedText style={styles.featureDesc}>Données protégées</ThemedText>
+            <ThemedText style={styles.featureTitle}>GDPR</ThemedText>
+            <ThemedText style={styles.featureDesc}>Protected data</ThemedText>
           </Card>
 
         </View>
@@ -89,9 +89,9 @@ export default function HomeScreen() {
           />
 
           <ThemedText style={styles.description}>
-            Vérifiez votre profil numérique{'\n'}
+            Verify your digital profile{'\n'}
             <ThemedText style={styles.highlight}>
-              en quelques étapes simples
+              in just a few simple steps
             </ThemedText>
           </ThemedText>
         </View>
@@ -101,20 +101,19 @@ export default function HomeScreen() {
       {/* Footer */}
       <View style={styles.footer}>
         <Button
-          title="🚀 Commencer la vérification"
+          title="🚀 Start verification"
           size="medium"
           onPress={() => router.push('/upload')}
         />
 
         <ThemedText style={styles.footerText}>
-          Processus sécurisé • Environ 2 minutes
+          Secure process • Approximately 2 minutes
         </ThemedText>
       </View>
 
     </ThemedView>
   );
 }
-
 const styles = StyleSheet.create({
 
   container: {
@@ -219,12 +218,11 @@ const styles = StyleSheet.create({
   },
 
 descriptionWrapper: {
-  width: '90%',
+  width: '100%',
   maxWidth: 420,
-
   alignSelf: 'center',
 
-  marginVertical: isWeb ? 30 : 0,
+  marginTop: isWeb ? 400 : 30,
 
   alignItems: 'center',
 },
@@ -238,7 +236,7 @@ descriptionRow: {
   flexDirection: 'row',
   alignItems: 'flex-start',
   justifyContent: 'center',
-  gap: 4, 
+  gap: 2, 
 },
 
 });

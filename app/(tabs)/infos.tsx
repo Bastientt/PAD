@@ -1,206 +1,345 @@
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Linking 
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Linking,
+  Animated,
+  useWindowDimensions,
 } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function InfosScreen() {
+  const fade = useRef(new Animated.Value(0)).current;
+  const move = useRef(new Animated.Value(40)).current;
+  const { width } = useWindowDimensions();
+  const small = width < 370;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(move, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-
-        {/* Title */}
-        <ThemedText type="title" style={styles.title}>
-          À propos de PAD
-        </ThemedText>
-
-        {/* Intro */}
-        <ThemedText style={styles.paragraph}>
-          PAD est un système de{' '}
-          <ThemedText style={styles.highlight}>
-            vérification d’identité biométrique
-          </ThemedText>{' '}
-          conçue pour garantir{' '}
-          <ThemedText style={styles.highlight}>sécurité</ThemedText>,{' '}
-          <ThemedText style={styles.highlight}>rapidité</ThemedText> et{' '}
-          <ThemedText style={styles.highlight}>fiabilité</ThemedText>.
-          {'\n\n'}
-          Elle fonctionne en capturant votre visage via la caméra, en appliquant une{' '}
-          <ThemedText style={styles.highlight}>
-            analyse anti-spoofing avancée
-          </ThemedText>
-          , puis en{' '}
-          <ThemedText style={styles.highlight}>chiffrant les données</ThemedText>{' '}
-          avant traitement afin de fournir un{' '}
-          <ThemedText style={styles.highlight}>résultat instantané</ThemedText>.
-        </ThemedText>
-
-        {/* Security */}
-        <Section title="🔐 Sécurité & confidentialité">
-          <ThemedText style={styles.paragraph}>
-            Toutes les données sont chiffrées avant transmission.
+        {/* HEADER */}
+        <LinearGradient
+          colors={['#0f172a', '#1e293b', '#4338ca']}
+          style={[
+            styles.header,
+            {
+              paddingTop: small ? 90 : 110,
+              paddingBottom: small ? 50 : 70,
+            },
+          ]}
+        >
+          <ThemedText
+            style={[
+              styles.logo,
+              {
+                fontSize: small ? 30 : 36,
+                letterSpacing: small ? 6 : 8,
+              },
+            ]}
+          >
+            PAD
           </ThemedText>
 
-          <ThemedText style={styles.paragraph}>
-            PAD respecte strictement les normes RGPD et les meilleures pratiques de sécurité.
+          <ThemedText
+            style={[
+              styles.tagline,
+              { fontSize: small ? 12 : 14 },
+            ]}
+          >
+            A Next-Gen Biometric Identity
           </ThemedText>
-        </Section>
+        </LinearGradient>
 
-        {/* Team */}
-        <Section title="👨‍💻 Équipe PAD">
-          <Member name="Ayman Chergui" />
-          <Member name="Bastien Schneider" />
-          <Member name="Mathieu Fraixanet" />
-        </Section>
+        <Animated.View
+          style={{
+            opacity: fade,
+            transform: [{ translateY: move }],
+          }}
+        >
+          {/* ABOUT */}
+          <GlassCard icon="shield.lefthalf.filled" title="About PAD" small={small}>
+            <ThemedText
+              style={[
+                styles.text,
+                { fontSize: small ? 14 : 15 },
+              ]}
+            >
+              PAD is a secure real-time biometric identity verification
+              platform built with React Native and Expo.
+              {'\n\n'}
+              It integrates facial recognition, liveness detection and
+              encrypted communication for seamless and compliant verification.
+            </ThemedText>
+          </GlassCard>
 
-        {/* GitHub */}
-        <Section title="💻 Projet GitHub">
+          {/* TEAM */}
+          <GlassCard icon="person.3.sequence.fill" title="Team" small={small}>
+            <ModernMember name="Ayman Chergui" small={small} />
+            <ModernMember name="Bastien Schneider" small={small} />
+            <ModernMember name="Mathieu Fraixanet" small={small} />
+          </GlassCard>
+
+          {/* OWNERS */}
+          <LinearGradient
+            colors={['#1e1b4b', '#312e81']}
+            style={[
+              styles.ownerCard,
+              {
+                marginHorizontal: small ? 16 : 22,
+                padding: small ? 22 : 28,
+              },
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.ownerIconWrapper}>
+                <IconSymbol
+                  name="crown.fill"
+                  size={16}
+                  color="#facc15"
+                />
+              </View>
+              <ThemedText style={styles.cardTitle}>
+                Owners
+              </ThemedText>
+            </View>
+
+            <ModernMember name="Jessica Giacobi" highlight small={small} />
+            <ModernMember name="Florian SANANES" highlight small={small} />
+          </LinearGradient>
+
+          {/* CTA */}
           <TouchableOpacity
-            style={styles.githubRow}
-            activeOpacity={0.7}
+            activeOpacity={0.9}
             onPress={() =>
               Linking.openURL('https://github.com/Bastientt/PAD')
             }
+            style={[
+              styles.buttonWrapper,
+              { width: small ? '85%' : undefined },
+            ]}
           >
-            <IconSymbol
-              name="chevron.left.forwardslash.chevron.right"
-              size={22}
-              color="#4dabff"
-            />
-            <ThemedText style={styles.githubText}>
-              Voir le projet sur GitHub
-            </ThemedText>
+            <LinearGradient
+              colors={['#6366f1', '#8b5cf6']}
+              style={[
+                styles.button,
+                {
+                  paddingVertical: small ? 14 : 18,
+                  paddingHorizontal: small ? 30 : 50,
+                },
+              ]}
+            >
+              <IconSymbol
+                name="chevron.left.forwardslash.chevron.right"
+                size={18}
+                color="#fff"
+              />
+              <ThemedText style={styles.buttonText}>
+                GitHub Repository
+              </ThemedText>
+            </LinearGradient>
           </TouchableOpacity>
-        </Section>
+        </Animated.View>
 
-        {/* Footer */}
         <ThemedText style={styles.footer}>
           PAD • Version 1.0
         </ThemedText>
-
       </ScrollView>
     </ThemedView>
   );
 }
 
-/* ───────── Components ───────── */
+/* ---------- Components ---------- */
 
-function Section({ title, children }: any) {
+function GlassCard({ icon, title, children, small }: any) {
   return (
-    <View style={styles.section}>
-      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+    <View
+      style={[
+        styles.card,
+        {
+          marginHorizontal: small ? 16 : 22,
+          padding: small ? 20 : 26,
+        },
+      ]}
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.iconWrapper}>
+          <IconSymbol name={icon} size={16} color="#818cf8" />
+        </View>
+        <ThemedText style={styles.cardTitle}>{title}</ThemedText>
+      </View>
       {children}
     </View>
   );
 }
 
-function Member({ name }: { name: string }) {
+function ModernMember({
+  name,
+  highlight = false,
+  small,
+}: {
+  name: string;
+  highlight?: boolean;
+  small: boolean;
+}) {
   return (
     <View style={styles.memberRow}>
-      <View style={styles.memberDot} />
-      <ThemedText style={styles.memberText}>{name}</ThemedText>
+      <LinearGradient
+        colors={
+          highlight
+            ? ['#facc15', '#eab308']
+            : ['#6366f1', '#4338ca']
+        }
+        style={[
+          styles.modernDot,
+          {
+            width: small ? 8 : 10,
+            height: small ? 8 : 10,
+          },
+        ]}
+      />
+      <ThemedText
+        style={[
+          styles.memberText,
+          { fontSize: small ? 14 : 16 },
+          highlight && { fontWeight: '700', color: '#facc15' },
+        ]}
+      >
+        {name}
+      </ThemedText>
     </View>
   );
 }
 
-/* ───────── Styles ───────── */
+/* ---------- Styles ---------- */
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
 
-  scroll: {
-    padding: 24,
-    paddingBottom: 60,
+  scroll: { paddingBottom: 100 },
+
+  header: {
     alignItems: 'center',
+    borderBottomLeftRadius: 50,
+    borderBottomRightRadius: 50,
   },
 
-  title: {
-    textAlign: 'center',
-    marginBottom: 22,
+  logo: {
+    fontWeight: '800',
+    color: '#fff',
   },
 
-  paragraph: {
-    fontSize: 14,
-    lineHeight: 22,
-    opacity: 0.75,
-    marginBottom: 14,
-    textAlign: 'center',
-    maxWidth: 420,
+  tagline: {
+    marginTop: 10,
+    color: '#c7d2fe',
   },
 
-  section: {
+  card: {
+    marginTop: 24,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    shadowColor: '#000',
+  },
+
+  ownerCard: {
     marginTop: 28,
-    alignItems: 'center',
-    width: '100%',
+    borderRadius: 26,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 35,
+    elevation: 20,
   },
 
-  sectionTitle: {
-    fontSize: 17,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+
+  cardTitle: {
+    marginLeft: 12,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 14,
-    textAlign: 'center',
-    letterSpacing: 0.5,
+  },
+
+  iconWrapper: {
+    backgroundColor: 'rgba(99,102,241,0.2)',
+    padding: 6,
+    borderRadius: 20,
+  },
+
+  ownerIconWrapper: {
+    backgroundColor: 'rgba(250,204,21,0.2)',
+    padding: 6,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+
+  text: {
+    lineHeight: 22,
+    opacity: 0.9,
   },
 
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
 
-  memberDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4dabff',
-    marginRight: 10,
-
-    shadowColor: '#4dabff',
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+  modernDot: {
+    borderRadius: 10,
+    marginRight: 12,
   },
 
-  memberText: {
-    fontSize: 14,
-    opacity: 0.9,
-    textAlign: 'center',
+  memberText: {},
+
+  buttonWrapper: {
+    marginTop: 40,
+    alignSelf: 'center',
+    borderRadius: 50,
+    overflow: 'hidden',
   },
 
-  githubRow: {
+  button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
   },
 
-  githubText: {
+  buttonText: {
     marginLeft: 12,
-    fontSize: 14,
-    color: '#4dabff',
-    fontWeight: '600',
-    textAlign: 'center',
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 
   footer: {
-    marginTop: 50,
+    marginTop: 60,
     textAlign: 'center',
-    opacity: 0.5,
+    opacity: 0.4,
     fontSize: 12,
-  },
-
-  highlight: {
-    color: '#4dabff',
-    fontWeight: '700',
   },
 });
