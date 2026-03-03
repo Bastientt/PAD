@@ -1,19 +1,19 @@
-// components/ui/button.tsx
-
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  Animated,
+  Platform,
+  View,
 } from 'react-native';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger' | 'success';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -24,121 +24,195 @@ interface ButtonProps {
 export function Button({
   title,
   onPress,
-  variant = 'primary',
   size = 'medium',
   disabled = false,
   loading = false,
   style,
   textStyle,
 }: ButtonProps) {
+
+  const scale = useRef(new Animated.Value(1)).current;
+  const elevation = useRef(new Animated.Value(12)).current;
+  const bgAnim = useRef(new Animated.Value(0)).current;
+  const hoverShadowOpacity = useRef(new Animated.Value(0)).current;
+
+  const onHoverIn = () => {
+    Animated.parallel([
+      Animated.timing(scale, {
+        toValue: 1.05,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(elevation, {
+        toValue: 26,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+      Animated.timing(bgAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+      Animated.timing(hoverShadowOpacity, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  const onHoverOut = () => {
+    Animated.parallel([
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+      Animated.timing(elevation, {
+        toValue: 12,
+        duration: 260,
+        useNativeDriver: false,
+      }),
+      Animated.timing(bgAnim, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: false,
+      }),
+      Animated.timing(hoverShadowOpacity, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  };
+
+  const backgroundColor = bgAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#ff0000', '#b04747'],
+  });
+
   return (
-    <TouchableOpacity
-      style={[
-        styles.button,
-        styles[`button_${variant}`],
-        styles[`button_${size}`],
-        (disabled || loading) && styles.buttonDisabled,
-        style,
-      ]}
-      onPress={onPress}
+    <Pressable
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      onPress={onPress}
+      onHoverIn={Platform.OS === 'web' ? onHoverIn : undefined}
+      onHoverOut={Platform.OS === 'web' ? onHoverOut : undefined}
+      style={{ alignItems: 'center' }}
     >
-      {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? '#fff' : '#666'}
-          size="small"
-        />
-      ) : (
-        <Text
+      <View style={styles.shadowWrapper}>
+
+        {/* BLACK SHADOW ON HOVER */}
+        <Animated.View
+          pointerEvents="none"
           style={[
-            styles.text,
-            styles[`text_${variant}`],
-            styles[`text_${size}`],
-            (disabled || loading) && styles.textDisabled,
-            textStyle,
+            styles.blackShadow,
+            { opacity: hoverShadowOpacity },
+          ]}
+        />
+
+        {/* MAIN BUTTON */}
+        <Animated.View
+          style={[
+            styles.button,
+            styles[`button_${size}`],
+            {
+              transform: [{ scale }],
+              elevation,
+              backgroundColor,
+            },
+            (disabled || loading) && styles.buttonDisabled,
+            style,
           ]}
         >
-          {title}
-        </Text>
-      )}
-    </TouchableOpacity>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text
+              style={[
+                styles.text,
+                styles[`text_${size}`],
+                textStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          )}
+        </Animated.View>
+
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+
+  shadowWrapper: {
+    alignItems: 'center',
+  },
+
+  /* BLACK HOVER SHADOW */
+  blackShadow: {
+    position: 'absolute',
+    width: '100%',
+    maxWidth: 360,
+    height: '100%',
+    borderRadius: 22,
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.45,
+    shadowRadius: 26,
+
+    elevation: 26,
+  },
+
+  /* MAIN BUTTON */
+
   button: {
-    borderRadius: 8,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+
+    width: '100%',
+    maxWidth: 360,
+
+    /* RED BASE SHADOW */
+    shadowColor: '#ff0000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+
+    elevation: 12,
   },
-  
-  // Variants
-  button_primary: {
-    backgroundColor: '#2196f3',
-  },
-  button_secondary: {
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  button_danger: {
-    backgroundColor: '#f44336',
-  },
-  button_success: {
-    backgroundColor: '#4caf50',
-  },
-  
-  // Sizes
+
   button_small: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
   },
+
   button_medium: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 15,
+    paddingHorizontal: 56,
   },
+
   button_large: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
   },
-  
-  // Disabled
+
   buttonDisabled: {
-    backgroundColor: '#cccccc',
-    opacity: 0.6,
+    backgroundColor: '#333',
+    opacity: 0.5,
+    elevation: 0,
   },
-  
-  // Text styles
+
   text: {
-    fontWeight: '600',
-  },
-  text_primary: {
+    fontWeight: '700',
+    letterSpacing: 0.7,
     color: '#ffffff',
   },
-  text_secondary: {
-    color: '#333333',
-  },
-  text_danger: {
-    color: '#ffffff',
-  },
-  text_success: {
-    color: '#ffffff',
-  },
-  
-  // Text sizes
-  text_small: {
-    fontSize: 12,
-  },
-  text_medium: {
-    fontSize: 14,
-  },
-  text_large: {
-    fontSize: 16,
-  },
-  
-  textDisabled: {
-    color: '#999999',
-  },
+
+  text_small: { fontSize: 13 },
+  text_medium: { fontSize: 15 },
+  text_large: { fontSize: 17 },
 });

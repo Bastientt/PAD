@@ -14,10 +14,39 @@ type IconSymbolName = keyof typeof MAPPING;
  * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
  */
 const MAPPING = {
-  'house.fill': 'home',
+  // Home
+  'house.fill': 'home-filled',
+
+  // Send / navigation
   'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
-  'chevron.right': 'chevron-right',
+
+  // Code / system
+  'chevron.left.forwardslash.chevron.right': 'terminal',
+
+  // Arrow
+  'chevron.right': 'arrow-forward-ios',
+
+  // Camera / upload
+  'camera.fill': 'photo-camera',
+
+  // Success / result
+  'checkmark.circle.fill': 'check-circle',
+
+  // Analytics
+  'chart.bar.fill': 'bar-chart',
+
+  // Cloud upload
+  'arrow.up.circle.fill': 'cloud-upload',
+
+  // Security
+  'person.crop.circle.fill': 'account-circle',
+  'shield.fill': 'shield',
+  'lock.fill': 'lock',
+  'doc.text.fill': 'description',
+
+  // ℹ️ Infos tab (NEW)
+  'info.circle.fill': 'info-outline',
+
 } as IconMapping;
 
 /**
@@ -25,6 +54,7 @@ const MAPPING = {
  * This ensures a consistent look across platforms, and optimal resource usage.
  * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
  */
+
 export function IconSymbol({
   name,
   size = 24,

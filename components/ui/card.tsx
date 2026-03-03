@@ -1,5 +1,3 @@
-// components/ui/card.tsx
-
 import React from 'react';
 import {
   View,
@@ -35,7 +33,7 @@ export function Card({
     <Container
       style={[styles.card, style]}
       onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}
+      activeOpacity={onPress ? 0.75 : 1}
     >
       {(title || subtitle) && (
         <View style={styles.header}>
@@ -43,9 +41,9 @@ export function Card({
           {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
       )}
-      
+
       <View style={styles.content}>{children}</View>
-      
+
       {footer && <View style={styles.footer}>{footer}</View>}
     </Container>
   );
@@ -53,38 +51,48 @@ export function Card({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#1c1f24',
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+
+    // soft modern shadow/glow
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 12,
+
+    // small inner highlight illusion
+    overflow: 'hidden',
   },
+
   header: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
+
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
+
   subtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.65)',
   },
+
   content: {
-    // Content styles
+    alignItems: 'center',
   },
+
   footer: {
-    marginTop: 12,
+    marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
 });

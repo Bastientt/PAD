@@ -60,7 +60,8 @@
         {
           "microphonePermission": "Cette application a besoin d'accéder au microphone pour l'analyse audio."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

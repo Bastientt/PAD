@@ -50,6 +50,17 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="infos"
+        options={{
+          title: 'Infos',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="info.circle.fill" size={26} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
+
 }

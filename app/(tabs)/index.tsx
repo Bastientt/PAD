@@ -1,163 +1,244 @@
-// app/(tabs)/index.tsx
-
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+
+const screenWidth = Dimensions.get('window').width;
+
+const isSmallMobile = screenWidth < 380;
+const isWeb = screenWidth >= 600;
 
 export default function HomeScreen() {
   const router = useRouter();
 
   return (
     <ThemedView style={styles.container}>
-      {/* Header section */}
+
+      {/* Main content */}
+      <View style={styles.content}>
+
+        {/* Hero image */}
+        <View style={styles.iconContainer}>
+          <Image
+            source={require('@/assets/images/home-logo.png')}
+            style={styles.heroImage}
+            resizeMode="contain"
+          />
+        </View>
+
+      {/* Header */}
       <View style={styles.header}>
         <ThemedText type="title" style={styles.title}>
-          🔐 Vérification d'Identité
+          PAD
         </ThemedText>
+
         <ThemedText style={styles.subtitle}>
           Système de détection biométrique sécurisé
         </ThemedText>
       </View>
 
-      {/* Main content */}
-      <View style={styles.content}>
-        {/* Centered icon */}
-        <View style={styles.iconContainer}>
-          <ThemedText style={styles.icon}>📱</ThemedText>
+        {/* Features */}
+        <View style={styles.featuresGrid}>
+
+          <Card style={styles.featureCard}>
+            <View style={styles.iconCenter}>
+              <IconSymbol name="person.crop.circle.fill" size={28} color="#ffffff" />
+            </View>
+            <ThemedText style={styles.featureTitle}>Face ID</ThemedText>
+            <ThemedText style={styles.featureDesc}>Reconnaissance facial</ThemedText>
+          </Card>
+
+          <Card style={styles.featureCard}>
+            <View style={styles.iconCenter}>
+              <IconSymbol name="shield.fill" size={28} color="#ffffff" />
+            </View>
+            <ThemedText style={styles.featureTitle}>Anti-spoof</ThemedText>
+            <ThemedText style={styles.featureDesc}>Protection fraude</ThemedText>
+          </Card>
+
+          <Card style={styles.featureCard}>
+            <View style={styles.iconCenter}>
+              <IconSymbol name="lock.fill" size={28} color="#ffffff" />
+            </View>
+            <ThemedText style={styles.featureTitle}>Chiffrement</ThemedText>
+            <ThemedText style={styles.featureDesc}>Sécurité totale</ThemedText>
+          </Card>
+
+          <Card style={styles.featureCard}>
+            <View style={styles.iconCenter}>
+              <IconSymbol name="doc.text.fill" size={28} color="#ffffff" />
+            </View>
+            <ThemedText style={styles.featureTitle}>RGPD</ThemedText>
+            <ThemedText style={styles.featureDesc}>Données protégées</ThemedText>
+          </Card>
+
         </View>
 
-        {/* Short description */}
-        <ThemedText style={styles.description}>
-          Créez votre profil numérique en quelques étapes simples
-        </ThemedText>
-
-        {/* Key features list */}
-        <View style={styles.featuresContainer}>
-          <FeatureItem icon="✓" text="Reconnaissance faciale avancée" />
-          <FeatureItem icon="✓" text="Détection anti-spoofing" />
-          <FeatureItem icon="✓" text="Chiffrement bout-en-bout" />
-          <FeatureItem icon="✓" text="Conforme RGPD" />
-        </View>
       </View>
 
-      {/* Footer with start button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => router.push('/upload')}
-          activeOpacity={0.8}
-        >
-          <ThemedText style={styles.buttonText}>
-            🚀 Commencer la vérification
+      <View style={styles.descriptionWrapper}>
+
+        <View style={styles.descriptionRow}>
+          <IconSymbol 
+            name="checkmark.circle.fill" 
+            size={20} 
+            color="#4dabff" 
+          />
+
+          <ThemedText style={styles.description}>
+            Vérifiez votre profil numérique{'\n'}
+            <ThemedText style={styles.highlight}>
+              en quelques étapes simples
+            </ThemedText>
           </ThemedText>
-        </TouchableOpacity>
+        </View>
+
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Button
+          title="🚀 Commencer la vérification"
+          size="medium"
+          onPress={() => router.push('/upload')}
+        />
 
         <ThemedText style={styles.footerText}>
           Processus sécurisé • Environ 2 minutes
         </ThemedText>
       </View>
+
     </ThemedView>
   );
 }
 
-// Renders feature items
-function FeatureItem({ icon, text }: { icon: string; text: string }) {
-  return (
-    <View style={styles.featureItem}>
-      <ThemedText style={styles.featureIcon}>{icon}</ThemedText>
-      <ThemedText style={styles.featureText}>{text}</ThemedText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: isWeb ? 60 : 40,
   },
+
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
     alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 18,
+    
   },
+
   title: {
-    fontSize: 28,
+    fontSize: isWeb ? 28 : 24,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
+
   subtitle: {
-    fontSize: 14,
+    fontSize: isWeb ? 14 : 13,
     opacity: 0.7,
     textAlign: 'center',
   },
+
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
+
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    width: isWeb ? 120 : 100,
+    height: isWeb ? 120 : 100,
+    borderRadius: isWeb ? 60 : 50,
+    backgroundColor: 'rgba(33,150,243,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 22,
+
+    shadowColor: '#2196F3',
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
   },
-  icon: {
-    fontSize: 64,
+
+  heroImage: {
+    width: '70%',
+    height: '70%',
   },
+
   description: {
-    fontSize: 16,
+    fontSize: isWeb ? 16 : 14,
     textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
+    marginBottom: 26,
+    lineHeight: 22,
   },
-  featuresContainer: {
-    width: '100%',
-    gap: 16,
-  },
-  featureItem: {
+
+  featuresGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: isWeb ? 'space-between' : 'center',
+    gap: isWeb ? 18 : 14,
+    marginTop: 10,
+  },
+
+  featureCard: {
+    width: isWeb ? 160 : isSmallMobile ? '100%' : '46%',
     alignItems: 'center',
-    gap: 12,
   },
-  featureIcon: {
-    fontSize: 20,
-    color: '#4CAF50',
+
+  iconCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
-  featureText: {
-    fontSize: 15,
-    flex: 1,
+
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
   },
+
+  featureDesc: {
+    fontSize: 11,
+    opacity: 0.7,
+    textAlign: 'center',
+  },
+
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
-    gap: 16,
+    paddingBottom: 36,
+    gap: 14,
   },
-  button: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#2196F3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
   footerText: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
     opacity: 0.6,
   },
+
+descriptionWrapper: {
+  width: '90%',
+  maxWidth: 420,
+
+  alignSelf: 'center',
+
+  marginVertical: isWeb ? 30 : 0,
+
+  alignItems: 'center',
+},
+
+highlight: {
+  color: '#4dabff',
+  fontWeight: '500',
+},
+
+descriptionRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-start',
+  justifyContent: 'center',
+  gap: 4, 
+},
+
 });
