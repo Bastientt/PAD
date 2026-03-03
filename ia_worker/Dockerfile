@@ -1,26 +1,31 @@
-# On utilise une image un peu plus robuste que la "slim"
-FROM python:3.11-bullseye
+FROM python:3.11-slim-bookworm
 
-ENV PIP_NO_CACHE_DIR=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-# Installation des dépendances système indispensables
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+    libgl1 libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Mise à jour de pip et installation des versions "Gold" (stables ensemble)
 RUN pip install --upgrade pip
-RUN pip install protobuf==3.20.3
-RUN pip install mediapipe==0.10.11
-RUN pip install opencv-python-headless numpy==1.24.3 redis boto3 scikit-learn
+
+# 1. OpenCV Headless (version stable)
+RUN pip install --default-timeout=1000 opencv-python-headless==4.8.0.76
+
+# 2. Dépendances de base + Matplotlib (requis par Mediapipe solutions)
+RUN pip install --default-timeout=1000 \
+    numpy==1.24.3 \
+    protobuf==3.20.3 \
+    absl-py attrs flatbuffers \
+    matplotlib kiwisolver cycler pyparsing \
+    redis boto3
+
+# 3. MediaPipe sans ses dépendances lourdes (Torch/TF full)
+RUN pip install mediapipe==0.10.11 --no-deps
 
 COPY . .
-
-# On s'assure qu'aucun fichier ne s'appelle mediapipe.py
-RUN rm -f mediapipe.py
 
 CMD ["python", "-u", "ai_worker.py"]

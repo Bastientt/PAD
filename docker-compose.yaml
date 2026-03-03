@@ -49,3 +49,7 @@ services:
       - minio
     environment:
       - REDIS_URL=redis://redis:6379
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_REGION=eu-west-1
+      - RATIO=0.70
