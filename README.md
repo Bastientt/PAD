@@ -98,11 +98,12 @@ ui-frontend/
 ## Contributors
 
 - Ayman Chergui
-- Badr Moussaoui
 - Bastien SCHNEIDER
-- Florian SANANES
-- Ranya AMARA
+- Mathieu Fraixanet
 
 ---
 
 ## License
+
+- Jessica Giacobi 
+- Florian SANANES
