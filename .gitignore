@@ -1,0 +1,6 @@
+# Backend
+/backend/target/
+/backend/key/
+
+# Frontend
+/frontend/node_modules/
