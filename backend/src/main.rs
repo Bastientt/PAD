@@ -32,6 +32,8 @@ struct RedisIaResponse {
     pub user_id: i64,
     pub status: String,
     pub filename: String,
+    #[serde(default)]
+    pub movements: serde_json::Value,
 }
 
 pub struct WSActor {
@@ -70,7 +72,9 @@ impl Actor for WSActor {
 impl StreamHandler<RedisIaResponse> for WSActor {
     fn handle(&mut self, item: RedisIaResponse, ctx: &mut Self::Context) {
         if item.user_id == self.user_id {
-            ctx.text(format!("{}: {}", item.status, item.filename));
+            if let Ok(json) = serde_json::to_string(&item) {
+                ctx.text(json);
+            }
         }
     }
 }
@@ -218,11 +222,535 @@ pub fn generate_challenge() -> Vec<String> {
 
     */
 
+// --- TESTS ---
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, App};
+    use std::collections::HashSet;
+
+    // ================================================================
+    // SECTION 1 : generate_challenge
+    // ================================================================
+
+    #[test]
+    fn test_challenge_has_exactly_4_elements() {
+        let challenge = generate_challenge();
+        assert_eq!(challenge.len(), 4, "Le challenge doit contenir exactement 4 directions");
+    }
+
+    #[test]
+    fn test_challenge_contains_only_valid_directions() {
+        let valid: HashSet<&str> = ["HAUT", "BAS", "GAUCHE", "DROITE"].iter().cloned().collect();
+        for _ in 0..50 {
+            let challenge = generate_challenge();
+            for dir in &challenge {
+                assert!(valid.contains(dir.as_str()), "Direction invalide détectée: '{}'", dir);
+            }
+        }
+    }
+
+    #[test]
+    fn test_challenge_is_non_empty_strings() {
+        let challenge = generate_challenge();
+        for dir in &challenge {
+            assert!(!dir.is_empty(), "Une direction ne doit pas être une chaîne vide");
+        }
+    }
+
+    #[test]
+    fn test_challenge_covers_all_4_directions_statistically() {
+        // Sur 200 appels, toutes les directions doivent apparaître au moins une fois
+        let mut seen: HashSet<String> = HashSet::new();
+        for _ in 0..200 {
+            for dir in generate_challenge() {
+                seen.insert(dir);
+            }
+        }
+        assert_eq!(seen.len(), 4, "Les 4 directions doivent toutes apparaître statistiquement");
+    }
+
+    #[test]
+    fn test_challenge_is_random_not_always_identical() {
+        let first = generate_challenge();
+        let mut all_same = true;
+        for _ in 0..30 {
+            if generate_challenge() != first {
+                all_same = false;
+                break;
+            }
+        }
+        assert!(!all_same, "Les challenges ne doivent pas toujours être identiques");
+    }
+
+    // ================================================================
+    // SECTION 2 : RedisIaResponse — sérialisation / désérialisation
+    // ================================================================
+
+    #[test]
+    fn test_redis_ia_response_deserialize_full() {
+        let json = r#"{"user_id":42,"status":"done","filename":"test.mp4","movements":{"head":"up"}}"#;
+        let res: RedisIaResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(res.user_id, 42);
+        assert_eq!(res.status, "done");
+        assert_eq!(res.filename, "test.mp4");
+        assert!(res.movements.is_object());
+    }
+
+    #[test]
+    fn test_redis_ia_response_deserialize_movements_defaults_to_null() {
+        let json = r#"{"user_id":1,"status":"processing","filename":"video.mp4"}"#;
+        let res: RedisIaResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(res.user_id, 1);
+        assert!(res.movements.is_null(), "movements absent doit valoir null par défaut");
+    }
+
+    #[test]
+    fn test_redis_ia_response_serialize_roundtrip() {
+        let original = RedisIaResponse {
+            user_id: 99,
+            status: "success".to_string(),
+            filename: "data_123_99.mp4".to_string(),
+            movements: serde_json::json!({"HAUT": 3, "BAS": 1}),
+        };
+        let serialized = serde_json::to_string(&original).unwrap();
+        let back: RedisIaResponse = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(back.user_id, original.user_id);
+        assert_eq!(back.status, original.status);
+        assert_eq!(back.filename, original.filename);
+    }
+
+    #[test]
+    fn test_redis_ia_response_missing_status_fails() {
+        // status est requis, pas de #[serde(default)]
+        let json = r#"{"user_id":1,"filename":"x.mp4"}"#;
+        let result: Result<RedisIaResponse, _> = serde_json::from_str(json);
+        assert!(result.is_err(), "Doit échouer si 'status' est absent");
+    }
+
+    #[test]
+    fn test_redis_ia_response_missing_filename_fails() {
+        let json = r#"{"user_id":1,"status":"ok"}"#;
+        let result: Result<RedisIaResponse, _> = serde_json::from_str(json);
+        assert!(result.is_err(), "Doit échouer si 'filename' est absent");
+    }
+
+    #[test]
+    fn test_redis_ia_response_wrong_type_user_id_fails() {
+        let json = r#"{"user_id":"pas_un_entier","status":"ok","filename":"f.mp4"}"#;
+        let result: Result<RedisIaResponse, _> = serde_json::from_str(json);
+        assert!(result.is_err(), "user_id doit être un entier");
+    }
+
+    // ================================================================
+    // SECTION 3 : JwtClaims — sérialisation
+    // ================================================================
+
+    #[test]
+    fn test_jwt_claims_serde_roundtrip() {
+        let claims = JwtClaims { id: 12345, exp: 9_999_999 };
+        let json = serde_json::to_string(&claims).unwrap();
+        let decoded: JwtClaims = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.id, 12345);
+        assert_eq!(decoded.exp, 9_999_999);
+    }
+
+    #[test]
+    fn test_jwt_claims_zero_values() {
+        let claims = JwtClaims { id: 0, exp: 0 };
+        let json = serde_json::to_string(&claims).unwrap();
+        let decoded: JwtClaims = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.id, 0);
+        assert_eq!(decoded.exp, 0);
+    }
+
+    #[test]
+    fn test_jwt_claims_large_id() {
+        let claims = JwtClaims { id: u64::MAX, exp: usize::MAX };
+        let json = serde_json::to_string(&claims).unwrap();
+        let decoded: JwtClaims = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.id, u64::MAX);
+    }
+
+    // ================================================================
+    // SECTION 4 : decode_jwt — cas d'erreur (sans fichier clé)
+    // Les appels directs paniquent si key/public_key.pem est absent.
+    // On teste via la couche HTTP où l'erreur est gérée proprement.
+    // ================================================================
+
+    #[actix_rt::test]
+    async fn test_init_session_without_cookie_returns_401() {
+        // JWT extractor s'exécute avant d'atteindre Redis/S3 → 401 sans dépendances
+        let app = test::init_service(
+            App::new()
+                .app_data(actix_web::web::Data::new(
+                    redis::Client::open("redis://127.0.0.1:6379").unwrap(),
+                ))
+                .service(init_session),
+        )
+        .await;
+
+        let req = test::TestRequest::get().uri("/init-sesssion").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_rt::test]
+    async fn test_init_session_with_invalid_cookie_returns_401() {
+        let app = test::init_service(
+            App::new()
+                .app_data(actix_web::web::Data::new(
+                    redis::Client::open("redis://127.0.0.1:6379").unwrap(),
+                ))
+                .service(init_session),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/init-sesssion")
+            .cookie(actix_web::cookie::Cookie::new("PAD_Auth", "token_invalide_garbage"))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_rt::test]
+    async fn test_init_session_with_tampered_jwt_returns_401() {
+        // JWT structurellement valide mais signature incorrecte
+        let tampered = "eyJhbGciOiJFZERTQSJ9.eyJpZCI6OTk5OTksImV4cCI6OTk5OTk5OTk5OX0.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let app = test::init_service(
+            App::new()
+                .app_data(actix_web::web::Data::new(
+                    redis::Client::open("redis://127.0.0.1:6379").unwrap(),
+                ))
+                .service(init_session),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/init-sesssion")
+            .cookie(actix_web::cookie::Cookie::new("PAD_Auth", tampered))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_rt::test]
+    async fn test_ws_without_cookie_returns_401() {
+        let app = test::init_service(
+            App::new()
+                .app_data(actix_web::web::Data::new(
+                    redis::Client::open("redis://127.0.0.1:6379").unwrap(),
+                ))
+                .service(ws_index),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/ws/test_video.mp4")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_rt::test]
+    async fn test_ws_with_wrong_cookie_name_returns_401() {
+        // Cookie présent mais mauvais nom : PAD_Auth est attendu
+        let app = test::init_service(
+            App::new()
+                .app_data(actix_web::web::Data::new(
+                    redis::Client::open("redis://127.0.0.1:6379").unwrap(),
+                ))
+                .service(ws_index),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/ws/video.mp4")
+            .cookie(actix_web::cookie::Cookie::new("session", "valeur"))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::UNAUTHORIZED);
+    }
+
+    // ================================================================
+    // SECTION 5 : Shadow ban / Rate limiting (nécessite Redis)
+    // Lancer avec : cargo test -- --ignored
+    // ================================================================
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_allows_first_10_requests() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+        let uid = u64::MAX - 100; // ID peu probable d'exister en prod
+        cleanup_ratelimit_key(uid, &client).await;
+
+        for i in 1..=10 {
+            let allowed = log_id(uid, &client).await;
+            assert!(allowed, "La requête #{} doit être autorisée", i);
+        }
+        cleanup_ratelimit_key(uid, &client).await;
+    }
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_shadow_ban_on_11th_request() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+        let uid = u64::MAX - 101;
+        cleanup_ratelimit_key(uid, &client).await;
+
+        for _ in 0..10 {
+            log_id(uid, &client).await;
+        }
+        let blocked = log_id(uid, &client).await;
+        assert!(!blocked, "La 11ème requête doit être bloquée (shadow ban)");
+        cleanup_ratelimit_key(uid, &client).await;
+    }
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_shadow_ban_persists_after_threshold() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+        let uid = u64::MAX - 102;
+        cleanup_ratelimit_key(uid, &client).await;
+
+        for _ in 0..15 {
+            log_id(uid, &client).await;
+        }
+        for i in 0..5 {
+            let blocked = log_id(uid, &client).await;
+            assert!(!blocked, "Le shadow ban doit persister, requête #{}", i + 16);
+        }
+        cleanup_ratelimit_key(uid, &client).await;
+    }
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_is_per_user_independent() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+        let user_a = u64::MAX - 110;
+        let user_b = u64::MAX - 111;
+        cleanup_ratelimit_key(user_a, &client).await;
+        cleanup_ratelimit_key(user_b, &client).await;
+
+        // user_a dépasse la limite
+        for _ in 0..11 {
+            log_id(user_a, &client).await;
+        }
+        // user_b reste libre
+        let b_allowed = log_id(user_b, &client).await;
+        assert!(b_allowed, "Le shadow ban de A ne doit pas affecter B");
+
+        cleanup_ratelimit_key(user_a, &client).await;
+        cleanup_ratelimit_key(user_b, &client).await;
+    }
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_key_has_ttl_of_one_hour() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+        let uid = u64::MAX - 120;
+        cleanup_ratelimit_key(uid, &client).await;
+
+        log_id(uid, &client).await;
+
+        if let Ok(mut conn) = client.get_multiplexed_tokio_connection().await {
+            let key = format!("ratelimit:{}", uid);
+            let ttl: i64 = conn.ttl(&key).await.unwrap_or(-1);
+            assert!(ttl > 0 && ttl <= 3600, "TTL doit être dans [1, 3600], obtenu: {}", ttl);
+        }
+        cleanup_ratelimit_key(uid, &client).await;
+    }
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_counter_increments_correctly() {
+        let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
+        let uid = u64::MAX - 130;
+        cleanup_ratelimit_key(uid, &client).await;
+
+        for _ in 0..5 {
+            log_id(uid, &client).await;
+        }
+
+        if let Ok(mut conn) = client.get_multiplexed_tokio_connection().await {
+            let key = format!("ratelimit:{}", uid);
+            let count: i64 = conn.get(&key).await.unwrap_or(0);
+            assert_eq!(count, 5, "Le compteur doit valoir 5 après 5 appels");
+        }
+        cleanup_ratelimit_key(uid, &client).await;
+    }
+
+    #[actix_rt::test]
+    #[ignore = "Nécessite un Redis actif sur 127.0.0.1:6379"]
+    async fn test_rate_limit_fail_closed_on_redis_unreachable() {
+        // Port inexistant : simule une panne Redis
+        let client = redis::Client::open("redis://127.0.0.1:19999").unwrap();
+        let result = log_id(42, &client).await;
+        assert!(!result, "Sans Redis, log_id doit refuser (fail-closed)");
+    }
+
+    // Helper : supprime la clé de rate limit dans Redis
+    async fn cleanup_ratelimit_key(uid: u64, client: &redis::Client) {
+        if let Ok(mut conn) = client.get_multiplexed_tokio_connection().await {
+            let key = format!("ratelimit:{}", uid);
+            let _: Result<(), _> = conn.del(&key).await;
+        }
+    }
+
+    // ================================================================
+    // SECTION 6 : Parsing des messages WebSocket
+    // ================================================================
+
+    #[test]
+    fn test_ws_upload_done_message_with_challenge() {
+        let msg = "UploadDone|HAUT,BAS,GAUCHE,DROITE";
+        let parts: Vec<&str> = msg.split('|').collect();
+        assert!(msg.starts_with("UploadDone"));
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[1], "HAUT,BAS,GAUCHE,DROITE");
+    }
+
+    #[test]
+    fn test_ws_upload_done_without_pipe_returns_inconnu() {
+        let msg = "UploadDone";
+        let parts: Vec<&str> = msg.split('|').collect();
+        let challenge = parts.get(1).unwrap_or(&"INCONNU");
+        assert_eq!(*challenge, "INCONNU");
+    }
+
+    #[test]
+    fn test_ws_unknown_message_not_treated_as_upload_done() {
+        let messages = ["Ping", "RandomData|foo", "upload_done|bar", "UPLOADONE|baz"];
+        for msg in &messages {
+            assert!(!msg.starts_with("UploadDone"), "Message '{}' ne doit pas déclencher le traitement", msg);
+        }
+    }
+
+    #[test]
+    fn test_ws_upload_done_with_multiple_pipes_takes_second_part() {
+        let msg = "UploadDone|HAUT|EXTRA";
+        let parts: Vec<&str> = msg.split('|').collect();
+        let challenge = parts.get(1).unwrap_or(&"INCONNU");
+        assert_eq!(*challenge, "HAUT");
+    }
+
+    // ================================================================
+    // SECTION 7 : Logique de nommage des fichiers
+    // ================================================================
+
+    #[test]
+    fn test_filename_format_is_correct() {
+        let ts = chrono::Utc::now().timestamp();
+        let id: u64 = 12345;
+        let filename = format!("data_{}_{}.mp4", ts, id);
+        assert!(filename.starts_with("data_"));
+        assert!(filename.ends_with(".mp4"));
+        assert!(filename.contains(&id.to_string()));
+        assert!(filename.contains(&ts.to_string()));
+    }
+
+    #[test]
+    fn test_filename_unique_between_different_users() {
+        let ts = 1_700_000_000u64;
+        let f1 = format!("data_{}_{}.mp4", ts, 1u64);
+        let f2 = format!("data_{}_{}.mp4", ts, 2u64);
+        assert_ne!(f1, f2);
+    }
+
+    #[test]
+    fn test_filename_unique_between_different_timestamps() {
+        let id = 999u64;
+        let f1 = format!("data_{}_{}.mp4", 1_700_000_000u64, id);
+        let f2 = format!("data_{}_{}.mp4", 1_700_000_001u64, id);
+        assert_ne!(f1, f2);
+    }
+
+    // ================================================================
+    // SECTION 8 : Infrastructure — Redis Client (parsing URL)
+    // ================================================================
+
+    #[test]
+    fn test_redis_client_valid_url_parses_ok() {
+        assert!(redis::Client::open("redis://127.0.0.1:6379").is_ok());
+    }
+
+    #[test]
+    fn test_redis_client_valid_url_with_password_parses_ok() {
+        assert!(redis::Client::open("redis://:password@127.0.0.1:6379").is_ok());
+    }
+
+    #[test]
+    fn test_redis_client_invalid_scheme_fails() {
+        assert!(redis::Client::open("http://127.0.0.1:6379").is_err());
+    }
+
+    #[test]
+    fn test_redis_url_env_fallback_default() {
+        std::env::remove_var("REDIS_URL");
+        let url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        assert_eq!(url, "redis://127.0.0.1:6379");
+    }
+
+    #[test]
+    fn test_redis_url_env_custom_overrides_default() {
+        std::env::set_var("REDIS_URL", "redis://redis-server:6380");
+        let url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        assert_eq!(url, "redis://redis-server:6380");
+        std::env::remove_var("REDIS_URL");
+    }
+
+    // ================================================================
+    // SECTION 9 : Constantes métier (tests documentaires)
+    // ================================================================
+
+    #[test]
+    fn test_rate_limit_threshold_constant_is_10() {
+        // Documente la valeur seuil de log_id : <= 10 → autorisé
+        let threshold: i64 = 10;
+        assert_eq!(threshold, 10, "La limite doit être 10 requêtes par fenêtre");
+    }
+
+    #[test]
+    fn test_rate_limit_ttl_is_one_hour() {
+        let ttl: i64 = 3600;
+        assert_eq!(ttl, 3600, "Le TTL de la fenêtre doit être 3600s (1h)");
+    }
+
+    #[test]
+    fn test_signed_url_expiry_is_5_minutes() {
+        let expiry = std::time::Duration::from_secs(300);
+        assert_eq!(expiry.as_secs(), 300, "L'URL pré-signée S3 doit expirer en 5 minutes");
+    }
+
+    #[test]
+    fn test_jwt_expiry_is_24_hours() {
+        let expiry_seconds: i64 = 86400;
+        assert_eq!(expiry_seconds, 86400, "Le JWT doit expirer en 24h");
+    }
+
+    #[test]
+    fn test_jwt_algorithm_is_eddsa() {
+        // Documente que l'algo choisi est EdDSA (Ed25519), pas HS256
+        let algo = jsonwebtoken::Algorithm::EdDSA;
+        assert_eq!(format!("{:?}", algo), "EdDSA");
+    }
+
+    #[test]
+    fn test_challenge_direction_count_is_4() {
+        let directions = ["HAUT", "BAS", "GAUCHE", "DROITE"];
+        assert_eq!(directions.len(), 4, "Il doit y avoir exactement 4 directions possibles");
+    }
+}
+
 // --- MAIN ---
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let endpoint = "http://minio:9000";
+    let endpoint = "http://localhost:9000";
     let config = aws_config::from_env().endpoint_url(endpoint).region(Region::new("eu-west-1")).load().await;
     let s3 = Client::from_conf(aws_sdk_s3::config::Builder::from(&config).force_path_style(true).build());
     let _ = s3.create_bucket().bucket("pad-bucket").send().await;

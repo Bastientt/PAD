@@ -1,0 +1,37 @@
+services:
+
+  # ── Test complet (génère corpus + analyse + rapport) ──────────────────────
+  test:
+    build: .
+    image: ai-video-detector
+    command: test 5 40
+    volumes:
+      - ./corpus:/data/corpus
+      - ./output:/data/output
+
+  # ── Analyse d'une vidéo unique ────────────────────────────────────────────
+  # Usage : VIDEO=./videos/clip.mp4 docker compose run analyze
+  analyze:
+    build: .
+    image: ai-video-detector
+    command: analyze /data/input/${VIDEO_FILE:-video.mp4} 60
+    volumes:
+      - ./videos:/data/input
+      - ./output:/data/output
+
+  # ── Analyse batch d'un dossier ────────────────────────────────────────────
+  batch:
+    build: .
+    image: ai-video-detector
+    command: batch /data/input 40
+    volumes:
+      - ./videos:/data/input
+      - ./output:/data/output
+
+  # ── Génération du corpus de test uniquement ───────────────────────────────
+  generate:
+    build: .
+    image: ai-video-detector
+    command: generate 10
+    volumes:
+      - ./corpus:/data/corpus

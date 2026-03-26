@@ -19,3 +19,6 @@ tokio = { version = "1", features = ["full"] }
 aws-config = { version = "1.5", features = ["behavior-version-latest"] }
 aws-sdk-s3 = { version = "1.5", features = ["http-1x"] }
 actix-cors = "0.7"
+
+[dev-dependencies]
+actix-rt = "2"

@@ -1,6 +1,44 @@
-# Backend
+# ===== Backend (Rust) =====
 /backend/target/
 /backend/key/
 
-# Frontend
-/frontend/node_modules/
+# ===== Python (ia_worker / anti-deepfake) =====
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# ===== Android (Ring3_App) =====
+/Ring3_App/.idea/
+/Ring3_App/local.properties
+
+# ===== Docker =====
+.docker/
+
+# ===== Secrets / Config sensible =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Éditeurs =====
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== Fichiers générés =====
+gaze_map.png
+telemetry.json
+tag.sh
