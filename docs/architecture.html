@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html"><span class="logo-badge">PAD</span><span class="logo-version">v1.0</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html" class="active"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> Architecture</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>Architecture</h1>
+      <p class="page-subtitle">Vue d'ensemble de la stack microservices, des flux de données et de l'organisation du code.</p>
+
+      <h2>Vue d'ensemble des services</h2>
+      <p>PAD est composé de 5 services distincts qui communiquent via HTTP, WebSocket et Redis Pub/Sub :</p>
+
+      <div class="diagram">
+        <pre>
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          Docker Network (PAD)                            │
+│                                                                          │
+│  ┌─────────────────┐         ┌──────────────────┐                       │
+│  │   Ring3_App     │  HTTP   │    Backend        │                       │
+│  │   (Android)     │◄───────►│   (Rust/Actix)   │                       │
+│  │                 │  WS     │   :8080           │                       │
+│  └─────────────────┘         └────────┬─────────┘                       │
+│                                       │                                  │
+│                             ┌─────────▼─────────┐                       │
+│                             │      Redis         │                       │
+│                             │   (Pub/Sub)        │                       │
+│                             │   :6379            │                       │
+│                             └─────────┬─────────┘                       │
+│                                       │                                  │
+│                             ┌─────────▼─────────┐                       │
+│                             │    IA Worker       │                       │
+│                             │  (Python/MediaPipe)│                       │
+│                             └─────────┬─────────┘                       │
+│                                       │ S3 API                           │
+│                             ┌─────────▼─────────┐                       │
+│                             │      MinIO         │                       │
+│                             │  (S3 Storage)      │                       │
+│                             │  :9000/:9001       │                       │
+│                             └───────────────────┘                       │
+└──────────────────────────────────────────────────────────────────────────┘
+        </pre>
+      </div>
+
+      <h2>Flux de données complet</h2>
+
+      <div class="diagram">
+        <pre>
+Android App                 Backend (Rust)            Redis           IA Worker           MinIO
+    │                            │                      │                │                  │
+    │── GET /Authentificate ────►│                      │                │                  │
+    │◄─ JWT Cookie ─────────────│                      │                │                  │
+    │                            │                      │                │                  │
+    │── GET /init-sesssion ─────►│                      │                │                  │
+    │                            │── Générer challenge ─┤                │                  │
+    │                            │── Presigned S3 URL ──┤                │                  │
+    │◄─ {url, challenge} ────────│                      │                │                  │
+    │                            │                      │                │                  │
+    │── PUT video → S3 URL ─────────────────────────────────────────────────────────────────►│
+    │◄─ 200 OK ─────────────────────────────────────────────────────────────────────────────│
+    │                            │                      │                │                  │
+    │── WS Connect /ws/{file} ──►│                      │                │                  │
+    │── "UploadDone|challenge" ──►│                      │                │                  │
+    │                            │── PUBLISH ia_jobs ──►│                │                  │
+    │                            │                      │── SUBSCRIBE ───►│                  │
+    │                            │                      │   ia_jobs       │                  │
+    │                            │                      │                │── GET video ─────►│
+    │                            │                      │                │◄─ video bytes ───│
+    │                            │                      │                │                  │
+    │                            │                      │                │── Deepfake Check │
+    │                            │                      │                │── Pose Analysis  │
+    │                            │                      │                │── Score calc.    │
+    │                            │                      │                │                  │
+    │                            │                      │◄─ PUBLISH ─────│                  │
+    │                            │                      │   ia_results    │                  │
+    │                            │◄─ result ────────────│                │                  │
+    │◄─ WS {status, movements} ──│                      │                │                  │
+        </pre>
+      </div>
+
+      <h2>Structure du projet</h2>
+      <pre><code>PAD/
+├── backend/                    <span class="cmt"># API Rust (Actix-web)</span>
+│   ├── src/
+│   │   └── main.rs            <span class="cmt"># Endpoints, WebSocket, JWT, Redis routing</span>
+│   ├── Cargo.toml             <span class="cmt"># Dépendances Rust</span>
+│   ├── Dockerfile             <span class="cmt"># Multi-stage: builder → debian slim</span>
+│   └── key/
+│       ├── private_key.pem    <span class="cmt"># Clé EdDSA privée (non versionné)</span>
+│       └── public_key.pem     <span class="cmt"># Clé EdDSA publique (non versionné)</span>
+│
+├── ia_worker/                  <span class="cmt"># AI Worker Python</span>
+│   ├── ai_worker.py           <span class="cmt"># Worker principal : pose, mouvements, scoring</span>
+│   ├── deepfake_detector.py   <span class="cmt"># Détection de deepfakes intégrée</span>
+│   └── Dockerfile             <span class="cmt"># Python 3.11 slim + MediaPipe</span>
+│
+├── Ring3_App/                  <span class="cmt"># Application Android Kotlin</span>
+│   └── app/src/main/java/
+│       └── com/padFrontend/
+│           ├── MainActivity.kt     <span class="cmt"># UI Compose + CameraX + WebSocket</span>
+│           └── ui/theme/          <span class="cmt"># Design system</span>
+│
+├── anti-deepfake/              <span class="cmt"># Module deepfake standalone</span>
+│   ├── ai_video_detector.py   <span class="cmt"># Analyse FFT fréquences</span>
+│   ├── antideepfake.py        <span class="cmt"># DCT + résidus de bruit</span>
+│   └── Dockerfile
+│
+└── docker-compose.yaml         <span class="cmt"># Orchestration complète</span></code></pre>
+
+      <h2>Backend Rust — Actix-web</h2>
+      <p>Le backend est le point d'entrée de tout le système. Il expose une API REST + WebSocket,
+      gère l'authentification JWT et orchestre les jobs IA via Redis.</p>
+
+      <h3>Responsabilités</h3>
+      <ul>
+        <li>Génération et validation des tokens JWT (algorithme EdDSA/Ed25519)</li>
+        <li>Génération du challenge aléatoire de 4 mouvements</li>
+        <li>Création des URLs S3 pré-signées (validité 5 min)</li>
+        <li>Publication des jobs d'analyse sur le canal Redis <code>ia_jobs</code></li>
+        <li>Souscription aux résultats sur <code>ia_results</code> et retransmission WebSocket</li>
+        <li>Rate limiting : 10 requêtes/heure par utilisateur</li>
+      </ul>
+
+      <h3>Dépendances clés</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Crate</th><th>Version</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td><code>actix-web</code></td><td>4.4</td><td>Framework HTTP + WebSocket</td></tr>
+            <tr><td><code>redis</code></td><td>0.27</td><td>Client Redis Pub/Sub</td></tr>
+            <tr><td><code>aws-sdk-s3</code></td><td>1.5</td><td>Client MinIO/S3</td></tr>
+            <tr><td><code>jsonwebtoken</code></td><td>9.2</td><td>Génération/validation JWT EdDSA</td></tr>
+            <tr><td><code>serde</code></td><td>1.0</td><td>Sérialisation JSON</td></tr>
+            <tr><td><code>tokio</code></td><td>latest</td><td>Runtime async</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>AI Worker Python</h2>
+      <p>Le worker Python est un processus long-running qui écoute le canal Redis <code>ia_jobs</code>
+      et traite chaque vidéo séquentiellement.</p>
+
+      <h3>Pipeline de traitement</h3>
+      <ol>
+        <li>Réception du job depuis Redis (user_id, filename, challenge)</li>
+        <li>Téléchargement de la vidéo depuis MinIO</li>
+        <li>Vérification anti-deepfake</li>
+        <li>Extraction frame-par-frame des landmarks faciaux (MediaPipe)</li>
+        <li>Calcul des angles d'Euler et détection des états de mouvement</li>
+        <li>Comparaison avec le challenge → score</li>
+        <li>Publication du résultat sur Redis <code>ia_results</code></li>
+      </ol>
+
+      <h2>Communication Redis Pub/Sub</h2>
+
+      <h3>Canal <code>ia_jobs</code> — Backend → IA Worker</h3>
+      <pre><code>{
+  <span class="str">"user_id"</span>: <span class="str">"4643453044896821454"</span>,
+  <span class="str">"filename"</span>: <span class="str">"video_8712.mp4"</span>,
+  <span class="str">"challenge"</span>: <span class="str">"BAS,GAUCHE,BAS,HAUT"</span>
+}</code></pre>
+
+      <h3>Canal <code>ia_results</code> — IA Worker → Backend</h3>
+      <pre><code>{
+  <span class="str">"user_id"</span>: <span class="str">"4643453044896821454"</span>,
+  <span class="str">"status"</span>: <span class="str">"IA_SUCCESS"</span>,           <span class="cmt">// ou "IA_FAIL", "IA_DEEPFAKE", "IA_ERROR"</span>
+  <span class="str">"filename"</span>: <span class="str">"video_8712.mp4"</span>,
+  <span class="str">"movements"</span>: [
+    { <span class="str">"frame"</span>: <span class="num">120</span>, <span class="str">"direction"</span>: <span class="str">"BAS"</span>, <span class="str">"raw"</span>: { <span class="str">"x"</span>: <span class="num">0.52</span>, <span class="str">"y"</span>: <span class="num">0.35</span> } },
+    { <span class="str">"frame"</span>: <span class="num">210</span>, <span class="str">"direction"</span>: <span class="str">"GAUCHE"</span>, <span class="str">"raw"</span>: { <span class="str">"x"</span>: -<span class="num">0.49</span>, <span class="str">"y"</span>: <span class="num">0.05</span> } }
+  ]
+}</code></pre>
+
+      <h2>Stockage MinIO</h2>
+      <p>MinIO est utilisé comme backend de stockage S3-compatible. Les vidéos sont :
+      <ul>
+        <li>Uploadées directement par l'app Android via une URL pré-signée (durée 5 min)</li>
+        <li>Stockées dans le bucket <code>pad-bucket</code></li>
+        <li>Téléchargées par l'IA Worker pour analyse</li>
+        <li>Nommées avec un identifiant unique : <code>video_{random}.mp4</code></li>
+      </ul>
+
+      <div class="callout callout-warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <p class="callout-title">Sécurité des vidéos</p>
+          <p>En production, il est recommandé de supprimer les vidéos après analyse et de configurer
+          une politique de bucket privé. Les URLs pré-signées garantissent un accès limité dans le temps.</p>
+        </div>
+      </div>
+
+      <h2>Application Android Ring3_App</h2>
+      <p>L'application Android est construite avec Jetpack Compose et CameraX. Elle gère :</p>
+      <ul>
+        <li>L'affichage des flèches de challenge à l'utilisateur</li>
+        <li>La capture vidéo via CameraX (caméra frontale)</li>
+        <li>L'upload vers MinIO via l'URL pré-signée</li>
+        <li>La communication WebSocket avec le backend via Ktor</li>
+        <li>L'affichage du résultat (succès / échec)</li>
+      </ul>
+
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Dépendance</th><th>Version</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td><code>Ktor</code></td><td>2.3.7</td><td>Client HTTP + WebSocket</td></tr>
+            <tr><td><code>CameraX</code></td><td>1.3.1</td><td>Capture vidéo</td></tr>
+            <tr><td><code>Jetpack Compose</code></td><td>latest stable</td><td>UI déclarative</td></tr>
+            <tr><td><code>Kotlin Serialization</code></td><td>latest</td><td>Parsing JSON</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="page-footer">
+        <a href="quickstart.html">← Quick Start</a>
+        <a href="api.html">API Reference →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

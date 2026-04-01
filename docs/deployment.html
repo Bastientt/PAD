@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deployment — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html"><span class="logo-badge">PAD</span><span class="logo-version">v1.0</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html" class="active"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> Docker & Deploy</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>Docker &amp; Déploiement</h1>
+      <p class="page-subtitle">Orchestration Docker Compose, builds multi-stage, variables d'environnement
+      et bonnes pratiques de production.</p>
+
+      <h2>Services Docker Compose</h2>
+      <p>Le fichier <code>docker-compose.yaml</code> à la racine orchestre l'ensemble de la stack :</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Service</th><th>Image</th><th>Ports exposés</th><th>Dépendances</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>minio</code></td>
+              <td>minio/minio:latest</td>
+              <td>9000, 9001</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>redis</code></td>
+              <td>redis:alpine</td>
+              <td>6379</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>backend</code></td>
+              <td>Build local (Rust)</td>
+              <td>8080</td>
+              <td>redis, minio</td>
+            </tr>
+            <tr>
+              <td><code>ia_worker</code></td>
+              <td>Build local (Python)</td>
+              <td>—</td>
+              <td>redis, minio</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <pre><code><span class="cmt"># Lancer toute la stack</span>
+docker compose up --build
+
+<span class="cmt"># En arrière-plan</span>
+docker compose up -d --build
+
+<span class="cmt"># Voir les logs</span>
+docker compose logs -f
+
+<span class="cmt"># Logs d'un service spécifique</span>
+docker compose logs -f backend
+docker compose logs -f ia_worker
+
+<span class="cmt"># Arrêter et nettoyer</span>
+docker compose down</code></pre>
+
+      <h2>Dockerfiles</h2>
+
+      <h3>Backend Rust — Build multi-stage</h3>
+      <p>Le backend utilise un build multi-stage pour minimiser la taille de l'image finale
+      (uniquement le binaire compilé dans une image Debian Slim).</p>
+
+      <pre><code><span class="cmt"># Stage 1 : Compilation Rust</span>
+<span class="kw">FROM</span> rust:<span class="num">1</span>-slim <span class="kw">AS</span> builder
+<span class="kw">WORKDIR</span> /app
+<span class="kw">COPY</span> . .
+<span class="kw">RUN</span> cargo build --release
+
+<span class="cmt"># Stage 2 : Runtime minimal</span>
+<span class="kw">FROM</span> debian:bookworm-slim
+<span class="kw">WORKDIR</span> /app
+<span class="kw">COPY</span> --from=builder /app/target/release/mon_projet_ws ./
+<span class="kw">COPY</span> key/ ./key/
+<span class="kw">EXPOSE</span> <span class="num">8080</span>
+<span class="kw">CMD</span> [<span class="str">"./mon_projet_ws"</span>]</code></pre>
+
+      <h3>AI Worker Python</h3>
+      <pre><code><span class="kw">FROM</span> python:3.11-slim
+<span class="kw">WORKDIR</span> /app
+
+<span class="cmt"># Dépendances système pour OpenCV et MediaPipe</span>
+<span class="kw">RUN</span> apt-get update && apt-get install -y \
+    libgl1-mesa-glx libglib2.0-0 ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
+<span class="kw">COPY</span> requirements.txt .
+<span class="kw">RUN</span> pip install --no-cache-dir -r requirements.txt
+
+<span class="kw">COPY</span> ai_worker.py deepfake_detector.py ./
+<span class="kw">CMD</span> [<span class="str">"python"</span>, <span class="str">"ai_worker.py"</span>]</code></pre>
+
+      <h2>Configuration des clés JWT</h2>
+      <p>Le backend nécessite une paire de clés EdDSA (Ed25519). Ces clés doivent être générées
+      avant le premier démarrage et ne doivent <strong>jamais</strong> être versionnées.</p>
+
+      <pre><code><span class="cmt"># Générer les clés</span>
+mkdir -p backend/key
+openssl genpkey -algorithm ED25519 -out backend/key/private_key.pem
+openssl pkey -in backend/key/private_key.pem -pubout -out backend/key/public_key.pem
+
+<span class="cmt"># Vérification</span>
+cat backend/key/public_key.pem</code></pre>
+
+      <div class="callout callout-danger">
+        <span class="callout-icon">🔴</span>
+        <div class="callout-body">
+          <p class="callout-title">Ne jamais committer les clés</p>
+          <p>Le dossier <code>backend/key/</code> est (et doit rester) dans le <code>.gitignore</code>.
+          En production, injecter les clés via des secrets Docker ou des variables d'environnement.</p>
+        </div>
+      </div>
+
+      <h2>MinIO — Configuration initiale</h2>
+      <p>Au premier démarrage, MinIO ne contient aucun bucket. Il faut créer <code>pad-bucket</code>
+      manuellement ou via la CLI :</p>
+
+      <pre><code><span class="cmt"># Via la CLI mc (MinIO Client)</span>
+docker run --rm -it \
+  --network pad_default \
+  minio/mc \
+  alias set local http://minio:9000 minioadmin minioadmin
+
+docker run --rm -it \
+  --network pad_default \
+  minio/mc \
+  mb local/pad-bucket
+
+<span class="cmt"># Rendre le bucket accessible</span>
+docker run --rm -it \
+  --network pad_default \
+  minio/mc \
+  anonymous set download local/pad-bucket</code></pre>
+
+      <h2>Déploiement en production</h2>
+
+      <h3>Checklist sécurité</h3>
+      <ul>
+        <li>Remplacer les credentials MinIO par défaut (<code>minioadmin/minioadmin</code>)</li>
+        <li>Activer HTTPS sur le backend (reverse proxy Nginx/Traefik)</li>
+        <li>Mettre le flag <code>Secure</code> sur le cookie JWT</li>
+        <li>Restreindre les origines CORS à votre domaine</li>
+        <li>Configurer Redis avec un mot de passe (<code>requirepass</code>)</li>
+        <li>Ajouter des limites de ressources (<code>mem_limit</code>) dans Compose</li>
+        <li>Configurer des health checks sur chaque service</li>
+        <li>Persister les données Redis avec un volume si nécessaire</li>
+      </ul>
+
+      <h3>Exemple avec Nginx reverse proxy</h3>
+      <pre><code>server {
+    listen 443 ssl;
+    server_name pad.votre-domaine.com;
+
+    ssl_certificate     /etc/ssl/certs/pad.crt;
+    ssl_certificate_key /etc/ssl/private/pad.key;
+
+    location / {
+        proxy_pass         http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection "upgrade";    <span class="cmt"># WebSocket</span>
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+    }
+}</code></pre>
+
+      <h3>Health checks</h3>
+      <pre><code><span class="cmt"># Vérifier que le backend répond</span>
+curl http://localhost:8080/Authentificate
+
+<span class="cmt"># Vérifier Redis</span>
+redis-cli ping   <span class="cmt"># → PONG</span>
+
+<span class="cmt"># Vérifier MinIO</span>
+curl http://localhost:9000/minio/health/live   <span class="cmt"># → 200 OK</span></code></pre>
+
+      <div class="page-footer">
+        <a href="deepfake.html">← Deepfake Detection</a>
+        <a href="configuration.html">Configuration →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

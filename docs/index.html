@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PAD — Présence & Anti-Spoofing Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html">
+        <span class="logo-badge">PAD</span>
+        <span class="logo-version">v1.0</span>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html" class="active"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────── -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">
+        PAD Docs <span>/</span> Overview
+      </div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+
+    <div class="page">
+
+      <!-- Hero -->
+      <div class="hero">
+        <h1>PAD — Présence &amp; Anti-Spoofing</h1>
+        <p class="page-subtitle" style="margin-bottom:0">
+          Système de détection de vivacité biométrique combinant l'analyse de pose 3D de la tête,
+          la détection de deepfakes et une architecture microservices hautes performances.
+        </p>
+        <div class="hero-badges">
+          <span class="badge badge-blue">Rust Backend</span>
+          <span class="badge badge-green">Python AI Worker</span>
+          <span class="badge badge-purple">Kotlin Android</span>
+          <span class="badge badge-orange">Docker Compose</span>
+          <span class="badge badge-blue">MediaPipe</span>
+          <span class="badge badge-green">Redis Pub/Sub</span>
+          <span class="badge badge-purple">MinIO S3</span>
+        </div>
+      </div>
+
+      <!-- What is PAD -->
+      <h2>Qu'est-ce que PAD ?</h2>
+      <p>
+        <strong>PAD</strong> (Presentation Attack Detection) est un système de vérification de
+        présence réelle conçu pour sécuriser les flux d'authentification biométrique. Il garantit
+        que la personne filmée est bien vivante, physiquement présente, et non remplacée par une
+        vidéo pré-enregistrée ou un deepfake.
+      </p>
+      <p>
+        Le système génère un challenge aléatoire de mouvements de tête (HAUT, BAS, GAUCHE, DROITE),
+        enregistre une vidéo de l'utilisateur, et analyse en temps réel si les mouvements détectés
+        correspondent au challenge — tout en vérifiant l'authenticité de la vidéo.
+      </p>
+
+      <div class="callout callout-success">
+        <span class="callout-icon">✅</span>
+        <div class="callout-body">
+          <p class="callout-title">Protection multi-couches</p>
+          <p>PAD combine trois mécanismes indépendants : validation des mouvements de tête en 3D,
+          détection de deepfake par analyse DCT/résidus de bruit, et vérification des signatures
+          biométriques naturelles (clignements, micro-expressions).</p>
+        </div>
+      </div>
+
+      <!-- Features -->
+      <h2>Fonctionnalités principales</h2>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">🧠</div>
+          <h3>Analyse de pose 3D</h3>
+          <p>468 landmarks faciaux via MediaPipe + projection SolvePnP pour des angles d'Euler précis.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🕵️</div>
+          <h3>Anti-deepfake</h3>
+          <p>Analyse DCT, résidus de bruit GAN, taux de clignements, micro-expressions naturelles.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <h3>Traitement async</h3>
+          <p>Queue Redis Pub/Sub pour distribution des jobs IA, résultats en temps réel via WebSocket.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔒</div>
+          <h3>JWT EdDSA</h3>
+          <p>Authentification par tokens Ed25519, cookies HttpOnly, rate limiting 10 req/h.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📦</div>
+          <h3>Stockage S3</h3>
+          <p>MinIO comme backend S3 compatible pour les vidéos, avec URLs pré-signées à durée limitée.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📱</div>
+          <h3>App Android</h3>
+          <p>Frontend natif Kotlin + Jetpack Compose avec CameraX et communication Ktor WebSocket.</p>
+        </div>
+      </div>
+
+      <!-- Tech stack -->
+      <h2>Stack technique</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Composant</th>
+              <th>Technologie</th>
+              <th>Rôle</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Backend</strong></td>
+              <td><span class="tag tag-rust">Rust</span> Actix-web 4.4</td>
+              <td>API HTTP REST + WebSocket, routage des jobs</td>
+            </tr>
+            <tr>
+              <td><strong>AI Worker</strong></td>
+              <td><span class="tag tag-python">Python</span> MediaPipe · OpenCV · NumPy</td>
+              <td>Analyse vidéo, pose 3D, détection de mouvements</td>
+            </tr>
+            <tr>
+              <td><strong>Frontend</strong></td>
+              <td><span class="tag tag-kotlin">Kotlin</span> Jetpack Compose · CameraX · Ktor</td>
+              <td>Application Android de capture et affichage</td>
+            </tr>
+            <tr>
+              <td><strong>Message Broker</strong></td>
+              <td><span class="tag tag-redis">Redis</span> Pub/Sub</td>
+              <td>Distribution asynchrone des jobs IA</td>
+            </tr>
+            <tr>
+              <td><strong>Stockage</strong></td>
+              <td><span class="tag tag-docker">MinIO</span> S3-compatible</td>
+              <td>Stockage des vidéos de vérification</td>
+            </tr>
+            <tr>
+              <td><strong>Infrastructure</strong></td>
+              <td><span class="tag tag-docker">Docker</span> Compose</td>
+              <td>Orchestration des services</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Sections -->
+      <h2>Explorer la documentation</h2>
+      <div class="card-grid">
+        <a class="card-link card" href="quickstart.html">
+          <div class="card-icon">⚡</div>
+          <h3>Quick Start</h3>
+          <p>Démarrer PAD en 5 minutes avec Docker Compose.</p>
+        </a>
+        <a class="card-link card" href="architecture.html">
+          <div class="card-icon">🏗️</div>
+          <h3>Architecture</h3>
+          <p>Vue d'ensemble des services, flux de données et diagrammes.</p>
+        </a>
+        <a class="card-link card" href="api.html">
+          <div class="card-icon">🔌</div>
+          <h3>API Reference</h3>
+          <p>Endpoints REST, WebSocket, schémas de requêtes et réponses.</p>
+        </a>
+        <a class="card-link card" href="algorithm.html">
+          <div class="card-icon">🧠</div>
+          <h3>Algorithme IA</h3>
+          <p>Pipeline de détection de mouvements, filtres, seuils et hysteresis.</p>
+        </a>
+        <a class="card-link card" href="deepfake.html">
+          <div class="card-icon">🕵️</div>
+          <h3>Détection Deepfake</h3>
+          <p>Analyse DCT, résidus de bruit GAN, signatures biométriques.</p>
+        </a>
+        <a class="card-link card" href="deployment.html">
+          <div class="card-icon">🐳</div>
+          <h3>Déploiement</h3>
+          <p>Docker, variables d'environnement, clés JWT, MinIO.</p>
+        </a>
+      </div>
+
+      <!-- Footer -->
+      <div class="page-footer">
+        <span>PAD Documentation — Bastientt</span>
+        <a href="https://github.com/Bastientt/PAD" target="_blank">github.com/Bastientt/PAD</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

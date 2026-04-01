@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuration — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html"><span class="logo-badge">PAD</span><span class="logo-version">v1.0</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html" class="active"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> Configuration</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>Configuration</h1>
+      <p class="page-subtitle">Toutes les variables d'environnement, les paramètres de l'IA Worker
+      et les options de tuning.</p>
+
+      <h2>Variables d'environnement — Backend (Rust)</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Variable</th><th>Défaut</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>REDIS_URL</code></td>
+              <td><code>redis://redis:6379</code></td>
+              <td>URL de connexion Redis. Format : <code>redis://[user:pass@]host:port</code></td>
+            </tr>
+            <tr>
+              <td><code>AWS_ACCESS_KEY_ID</code></td>
+              <td><code>minioadmin</code></td>
+              <td>Clé d'accès MinIO/S3</td>
+            </tr>
+            <tr>
+              <td><code>AWS_SECRET_ACCESS_KEY</code></td>
+              <td><code>minioadmin</code></td>
+              <td>Clé secrète MinIO/S3</td>
+            </tr>
+            <tr>
+              <td><code>S3_ENDPOINT</code></td>
+              <td><code>http://minio:9000</code></td>
+              <td>Endpoint MinIO (à adapter en production)</td>
+            </tr>
+            <tr>
+              <td><code>S3_BUCKET</code></td>
+              <td><code>pad-bucket</code></td>
+              <td>Nom du bucket S3 pour les vidéos</td>
+            </tr>
+            <tr>
+              <td><code>JWT_PRIVATE_KEY_PATH</code></td>
+              <td><code>/app/key/private_key.pem</code></td>
+              <td>Chemin vers la clé privée EdDSA</td>
+            </tr>
+            <tr>
+              <td><code>JWT_PUBLIC_KEY_PATH</code></td>
+              <td><code>/app/key/public_key.pem</code></td>
+              <td>Chemin vers la clé publique EdDSA</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Variables d'environnement — AI Worker (Python)</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Variable</th><th>Défaut</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>REDIS_URL</code></td>
+              <td><code>redis://redis:6379</code></td>
+              <td>URL de connexion Redis</td>
+            </tr>
+            <tr>
+              <td><code>AWS_ACCESS_KEY_ID</code></td>
+              <td><code>minioadmin</code></td>
+              <td>Clé d'accès MinIO</td>
+            </tr>
+            <tr>
+              <td><code>AWS_SECRET_ACCESS_KEY</code></td>
+              <td><code>minioadmin</code></td>
+              <td>Clé secrète MinIO</td>
+            </tr>
+            <tr>
+              <td><code>S3_ENDPOINT_URL</code></td>
+              <td><code>http://minio:9000</code></td>
+              <td>Endpoint MinIO pour boto3</td>
+            </tr>
+            <tr>
+              <td><code>RATIO</code></td>
+              <td><code>0.70</code></td>
+              <td>Seuil de validation du challenge (0.0–1.0). Plus haut = plus strict.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Paramètres de l'IA Worker</h2>
+      <p>Ces constantes se trouvent en tête de <code>ia_worker/ai_worker.py</code> et peuvent être
+      modifiées directement dans le code.</p>
+
+      <h3>Seuils de détection des mouvements</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Constante</th><th>Valeur</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>X_THRESHOLD</code></td><td><code>0.45</code></td><td>Seuil de déclenchement horizontal (GAUCHE / DROITE)</td></tr>
+            <tr><td><code>Y_DOWN</code></td><td><code>0.32</code></td><td>Seuil de déclenchement vers le BAS</td></tr>
+            <tr><td><code>Y_UP</code></td><td><code>-0.08</code></td><td>Seuil de déclenchement vers le HAUT (asymétrique)</td></tr>
+            <tr><td><code>X_CENTER_ZONE</code></td><td><code>0.28</code></td><td>Zone morte horizontale (largeur de retour au centre)</td></tr>
+            <tr><td><code>Y_CENTER_DOWN</code></td><td><code>0.18</code></td><td>Zone morte basse (retour au centre bas)</td></tr>
+            <tr><td><code>Y_CENTER_UP</code></td><td><code>-0.02</code></td><td>Zone morte haute (retour au centre haut)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Traitement du signal</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Constante</th><th>Valeur</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>SMOOTHING_FRAMES</code></td><td><code>4</code></td><td>Taille de la fenêtre de moyenne glissante</td></tr>
+            <tr><td><code>CONFIRM_FRAMES</code></td><td><code>5</code></td><td>Frames consécutives pour confirmer un changement d'état</td></tr>
+            <tr><td><code>FACE_GRACE_FRAMES</code></td><td><code>20</code></td><td>Frames sans visage tolérées avant réinitialisation</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Traitement vidéo</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Constante</th><th>Valeur</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>RESIZE_WIDTH</code></td><td><code>640</code></td><td>Largeur de redimensionnement (hauteur auto-calculée)</td></tr>
+            <tr><td><code>CLAHE_CLIP</code></td><td><code>2.0</code></td><td>Clip limit pour CLAHE (amélioration contraste)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Exemple docker-compose.yaml annoté</h2>
+      <pre><code>services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   <span class="cmt"># API S3</span>
+      - "9001:9001"   <span class="cmt"># Console web</span>
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    <span class="cmt"># Ajouter un volume en production :</span>
+    <span class="cmt"># volumes: [redis_data:/data]</span>
+    <span class="cmt"># command: redis-server --requirepass VOTRE_MOT_DE_PASSE</span>
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      REDIS_URL: redis://redis:6379
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    volumes:
+      - ./backend/key:/app/key:ro   <span class="cmt"># Clés JWT en lecture seule</span>
+    depends_on:
+      - redis
+      - minio
+
+  ia_worker:
+    build: ./ia_worker
+    environment:
+      REDIS_URL: redis://redis:6379
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      S3_ENDPOINT_URL: http://minio:9000
+      RATIO: "0.70"     <span class="cmt"># Tolérance du challenge (configurable !)</span>
+    depends_on:
+      - redis
+      - minio</code></pre>
+
+      <h2>Configuration de l'application Android</h2>
+      <p>Dans <code>Ring3_App/app/src/main/java/com/padFrontend/MainActivity.kt</code>,
+      modifier les constantes suivantes :</p>
+
+      <pre><code><span class="kw">companion object</span> {
+    <span class="cmt">// URL du backend</span>
+    <span class="kw">const val</span> BACKEND_URL = <span class="str">"http://10.0.2.2:8080"</span>  <span class="cmt">// Émulateur Android</span>
+    <span class="cmt">// Pour device physique :</span>
+    <span class="cmt">// const val BACKEND_URL = "http://192.168.1.x:8080"</span>
+
+    <span class="cmt">// Timeout vidéo (ms)</span>
+    <span class="kw">const val</span> RECORDING_TIMEOUT_MS = <span class="num">15_000L</span>
+}</code></pre>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <p class="callout-title">Adresses réseau Android</p>
+          <p><code>10.0.2.2</code> est l'adresse de l'hôte depuis l'émulateur Android Studio.
+          Pour un device physique, utiliser l'IP LAN de la machine hébergeant le backend.</p>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <a href="deployment.html">← Docker & Deploy</a>
+        <a href="index.html">Overview →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

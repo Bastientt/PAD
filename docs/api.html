@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html"><span class="logo-badge">PAD</span><span class="logo-version">v1.0</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html" class="active"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> API Reference</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>API Reference</h1>
+      <p class="page-subtitle">Référence complète des endpoints REST et WebSocket du backend PAD.</p>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <p class="callout-title">Base URL</p>
+          <p>Tous les endpoints sont servis sur <code>http://localhost:8080</code> par défaut.
+          L'authentification utilise un cookie HttpOnly <code>PAD_Auth</code>.</p>
+        </div>
+      </div>
+
+      <!-- Authentication -->
+      <h2>Authentification</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/Authentificate</span>
+          <span class="endpoint-desc">Génère un token JWT</span>
+        </div>
+        <div class="endpoint-body">
+          <p>Génère un identifiant utilisateur aléatoire, crée un token JWT signé avec la clé
+          Ed25519 privée, et le stocke dans un cookie HttpOnly.</p>
+
+          <h3>Réponse — Succès <code>200</code></h3>
+          <pre><code>{
+  <span class="str">"status"</span>: <span class="str">"success"</span>
+}</code></pre>
+          <p>En parallèle, le header <code>Set-Cookie</code> est positionné :</p>
+          <pre><code>Set-Cookie: PAD_Auth=&lt;JWT&gt;; HttpOnly; SameSite=Strict; Path=/</code></pre>
+
+          <h3>Structure du JWT</h3>
+          <pre><code><span class="cmt">// Header</span>
+{
+  <span class="str">"alg"</span>: <span class="str">"EdDSA"</span>,
+  <span class="str">"typ"</span>: <span class="str">"JWT"</span>
+}
+
+<span class="cmt">// Payload</span>
+{
+  <span class="str">"sub"</span>: <span class="str">"4643453044896821454"</span>,   <span class="cmt">// user_id aléatoire</span>
+  <span class="str">"exp"</span>: <span class="num">1704150000</span>               <span class="cmt">// expiration : now + 24h</span>
+}</code></pre>
+
+          <h3>Exemple</h3>
+          <pre><code>curl http://localhost:8080/Authentificate -c cookies.txt -v</code></pre>
+        </div>
+      </div>
+
+      <!-- Session Init -->
+      <h2>Gestion de session</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/init-sesssion</span>
+          <span class="endpoint-desc">Crée une session de vérification</span>
+        </div>
+        <div class="endpoint-body">
+          <p>Requiert le cookie <code>PAD_Auth</code>. Génère un challenge de 4 mouvements aléatoires
+          et une URL S3 pré-signée pour uploader la vidéo de vérification.</p>
+
+          <div class="callout callout-warning">
+            <span class="callout-icon">⚠️</span>
+            <div class="callout-body">
+              <p>Limité à <strong>10 appels/heure</strong> par utilisateur. Au-delà : <code>429 Too Many Requests</code>.</p>
+            </div>
+          </div>
+
+          <h3>Headers requis</h3>
+          <ul class="param-list">
+            <li>
+              <span class="param-name">Cookie</span>
+              <span class="param-type">string</span>
+              <span class="param-desc"><code>PAD_Auth=&lt;JWT&gt;</code> — token obtenu via <code>/Authentificate</code></span>
+            </li>
+          </ul>
+
+          <h3>Réponse — Succès <code>200</code></h3>
+          <pre><code>{
+  <span class="str">"url"</span>: <span class="str">"http://localhost:9000/pad-bucket/video_8712.mp4?X-Amz-Algorithm=..."</span>,
+  <span class="str">"challenge"</span>: [<span class="str">"HAUT"</span>, <span class="str">"BAS"</span>, <span class="str">"GAUCHE"</span>, <span class="str">"DROITE"</span>]
+}</code></pre>
+
+          <h3>Champs de réponse</h3>
+          <ul class="param-list">
+            <li>
+              <span class="param-name">url</span>
+              <span class="param-type">string</span>
+              <span class="param-desc">URL pré-signée S3 (PUT) valide pendant 5 minutes pour uploader la vidéo</span>
+            </li>
+            <li>
+              <span class="param-name">challenge</span>
+              <span class="param-type">string[]</span>
+              <span class="param-desc">Séquence de 4 mouvements à réaliser dans l'ordre. Valeurs : <code>HAUT</code>, <code>BAS</code>, <code>GAUCHE</code>, <code>DROITE</code></span>
+            </li>
+          </ul>
+
+          <h3>Réponses d'erreur</h3>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Code</th><th>Raison</th></tr></thead>
+              <tbody>
+                <tr><td><code>401</code></td><td>Cookie manquant ou JWT invalide/expiré</td></tr>
+                <tr><td><code>429</code></td><td>Rate limit dépassé (10 req/h)</td></tr>
+                <tr><td><code>500</code></td><td>Erreur génération URL S3</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Exemple</h3>
+          <pre><code><span class="cmt"># D'abord obtenir un token</span>
+curl http://localhost:8080/Authentificate -c cookies.txt
+
+<span class="cmt"># Puis initialiser une session</span>
+curl http://localhost:8080/init-sesssion -b cookies.txt | jq .</code></pre>
+        </div>
+      </div>
+
+      <!-- WebSocket -->
+      <h2>WebSocket — Résultats temps réel</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method method-ws">WS</span>
+          <span class="endpoint-path">/ws/{filename}</span>
+          <span class="endpoint-desc">Canal de résultats asynchrone</span>
+        </div>
+        <div class="endpoint-body">
+          <p>Connexion WebSocket utilisée pour signaler la fin de l'upload et recevoir le résultat
+          de l'analyse IA. Le <code>{filename}</code> doit correspondre au nom du fichier vidéo uploadé.</p>
+
+          <h3>Connexion</h3>
+          <pre><code><span class="cmt">// Exemple JavaScript</span>
+<span class="kw">const</span> <span class="var">ws</span> = <span class="kw">new</span> <span class="fn">WebSocket</span>(<span class="str">'ws://localhost:8080/ws/video_8712.mp4'</span>);</code></pre>
+
+          <h3>Message Client → Serveur</h3>
+          <p>Une fois la vidéo uploadée sur S3, le client envoie :</p>
+          <pre><code>UploadDone|HAUT,BAS,GAUCHE,DROITE</code></pre>
+          <ul class="param-list">
+            <li>
+              <span class="param-name">UploadDone</span>
+              <span class="param-type">prefix</span>
+              <span class="param-desc">Indique que l'upload S3 est terminé</span>
+            </li>
+            <li>
+              <span class="param-name">challenge</span>
+              <span class="param-type">string</span>
+              <span class="param-desc">Séquence du challenge reçu (séparateur virgule), dans le même ordre</span>
+            </li>
+          </ul>
+
+          <h3>Message Serveur → Client</h3>
+          <pre><code><span class="cmt">// Succès</span>
+{
+  <span class="str">"status"</span>: <span class="str">"IA_SUCCESS"</span>,
+  <span class="str">"movements"</span>: [
+    { <span class="str">"frame"</span>: <span class="num">120</span>, <span class="str">"direction"</span>: <span class="str">"HAUT"</span>, <span class="str">"raw"</span>: { <span class="str">"x"</span>: <span class="num">0.02</span>, <span class="str">"y"</span>: -<span class="num">0.41</span> } },
+    { <span class="str">"frame"</span>: <span class="num">210</span>, <span class="str">"direction"</span>: <span class="str">"BAS"</span>,  <span class="str">"raw"</span>: { <span class="str">"x"</span>: <span class="num">0.01</span>, <span class="str">"y"</span>:  <span class="num">0.38</span> } }
+  ]
+}
+
+<span class="cmt">// Échec (mouvements insuffisants)</span>
+{
+  <span class="str">"status"</span>: <span class="str">"IA_FAIL"</span>,
+  <span class="str">"movements"</span>: [...]
+}
+
+<span class="cmt">// Deepfake détecté</span>
+{
+  <span class="str">"status"</span>: <span class="str">"IA_DEEPFAKE"</span>,
+  <span class="str">"movements"</span>: []
+}
+
+<span class="cmt">// Erreur de traitement</span>
+{
+  <span class="str">"status"</span>: <span class="str">"IA_ERROR"</span>,
+  <span class="str">"movements"</span>: []
+}</code></pre>
+
+          <h3>Codes de statut IA</h3>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr><th>Status</th><th>Signification</th></tr></thead>
+              <tbody>
+                <tr><td><code>IA_SUCCESS</code></td><td>Challenge validé — l'utilisateur est considéré présent et vivant</td></tr>
+                <tr><td><code>IA_FAIL</code></td><td>Score insuffisant — les mouvements ne correspondent pas au challenge</td></tr>
+                <tr><td><code>IA_DEEPFAKE</code></td><td>Vidéo identifiée comme deepfake ou rejeu</td></tr>
+                <tr><td><code>IA_ERROR</code></td><td>Erreur technique lors de l'analyse (vidéo corrompue, pas de visage détecté…)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Exemple complet (TypeScript)</h3>
+          <pre><code><span class="kw">async function</span> <span class="fn">verifyLiveness</span>() {
+  <span class="cmt">// 1. Auth</span>
+  <span class="kw">await</span> fetch(<span class="str">'/Authentificate'</span>, { credentials: <span class="str">'include'</span> });
+
+  <span class="cmt">// 2. Session</span>
+  <span class="kw">const</span> session = <span class="kw">await</span> fetch(<span class="str">'/init-sesssion'</span>, { credentials: <span class="str">'include'</span> })
+    .then(r => r.json());
+  <span class="cmt">// session.url, session.challenge</span>
+
+  <span class="cmt">// 3. Upload vidéo</span>
+  <span class="kw">await</span> fetch(session.url, { method: <span class="str">'PUT'</span>, body: videoBlob });
+
+  <span class="cmt">// 4. WebSocket</span>
+  <span class="kw">const</span> filename = session.url.split(<span class="str">'/'</span>).pop().split(<span class="str">'?'</span>)[<span class="num">0</span>];
+  <span class="kw">const</span> ws = <span class="kw">new</span> <span class="fn">WebSocket</span>(`ws://localhost:8080/ws/${filename}`);
+
+  ws.onopen = () => {
+    ws.send(`UploadDone|${session.challenge.join(<span class="str">','</span>)}`);
+  };
+
+  ws.onmessage = (e) => {
+    <span class="kw">const</span> result = JSON.parse(e.data);
+    console.log(result.status); <span class="cmt">// "IA_SUCCESS" | "IA_FAIL" | ...</span>
+  };
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <h2>Sécurité</h2>
+
+      <h3>Rate Limiting</h3>
+      <p>Le rate limiting est appliqué sur <code>/init-sesssion</code> uniquement.
+      La clé Redis utilisée est <code>ratelimit:{user_id}</code> avec une expiration de 3600 secondes.</p>
+
+      <h3>JWT — EdDSA (Ed25519)</h3>
+      <p>Les tokens utilisent l'algorithme EdDSA, plus sécurisé et performant que RS256/HS256.
+      Les clés doivent être générées manuellement et montées dans le container backend.</p>
+
+      <h3>CORS</h3>
+      <pre><code>Allowed-Origin: http://localhost:3000
+Allowed-Methods: GET, POST
+Allow-Credentials: true</code></pre>
+
+      <div class="callout callout-danger">
+        <span class="callout-icon">🔴</span>
+        <div class="callout-body">
+          <p class="callout-title">Production</p>
+          <p>En production, pensez à : activer HTTPS, mettre <code>Secure</code> sur les cookies,
+          restreindre les origines CORS, et remplacer les credentials MinIO par défaut.</p>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <a href="architecture.html">← Architecture</a>
+        <a href="algorithm.html">AI Algorithm →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

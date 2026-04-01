@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deepfake Detection — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html"><span class="logo-badge">PAD</span><span class="logo-version">v1.0</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html" class="active"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> Deepfake Detection</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>Détection de Deepfakes &amp; Anti-Spoofing</h1>
+      <p class="page-subtitle">Méthodes d'analyse forensique pour détecter les vidéos synthétiques,
+      les rejeux et les manipulations GAN.</p>
+
+      <div class="callout callout-warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <p class="callout-title">Première ligne de défense</p>
+          <p>La détection de deepfake s'exécute <strong>avant</strong> l'analyse des mouvements.
+          Si une vidéo est identifiée comme synthétique, le traitement s'arrête immédiatement
+          avec le statut <code>IA_DEEPFAKE</code>.</p>
+        </div>
+      </div>
+
+      <h2>Architecture de la détection</h2>
+      <p>PAD implémente deux modules complémentaires de détection :</p>
+      <ul>
+        <li><strong><code>ia_worker/deepfake_detector.py</code></strong> — Module intégré dans le worker, exécuté à chaque analyse</li>
+        <li><strong><code>anti-deepfake/</code></strong> — Module standalone avec des analyses FFT plus approfondies (déployable séparément)</li>
+      </ul>
+
+      <h2>Méthode 1 — Analyse des résidus de bruit</h2>
+      <p>Les GANs et autres systèmes de génération laissent des traces dans les hautes fréquences
+      d'une image. L'analyse des résidus de bruit permet de comparer la texture du visage à
+      celle du fond.</p>
+
+      <pre><code><span class="kw">def</span> <span class="fn">analyze_noise_residuals</span>(frame, face_region):
+    <span class="str">"""
+    Compare les résidus de bruit entre la région faciale et le fond.
+    Les deepfakes montrent une homogénéité anormale du bruit facial.
+    """</span>
+    <span class="cmt"># Extraire le résidu de bruit (différence avec version lissée)</span>
+    smoothed = cv2.<span class="fn">GaussianBlur</span>(frame, (<span class="num">5</span>,<span class="num">5</span>), <span class="num">0</span>)
+    noise_residual = cv2.<span class="fn">absdiff</span>(frame, smoothed)
+
+    <span class="cmt"># Variance du résidu dans la zone faciale vs fond</span>
+    face_noise_var = np.<span class="fn">var</span>(noise_residual[face_region])
+    bg_noise_var   = np.<span class="fn">var</span>(noise_residual[~face_region])
+
+    <span class="cmt"># Ratio anormal → potentiel deepfake</span>
+    ratio = face_noise_var / (bg_noise_var + <span class="num">1e-10</span>)
+    <span class="kw">return</span> ratio</code></pre>
+
+      <h2>Méthode 2 — Analyse DCT (Discrete Cosine Transform)</h2>
+      <p>Les réseaux GAN introduisent des artefacts périodiques caractéristiques dans le domaine
+      fréquentiel. La DCT est particulièrement sensible à ces patterns en damier (checkerboard artifacts).</p>
+
+      <pre><code><span class="kw">def</span> <span class="fn">analyze_dct_coefficients</span>(face_patch):
+    <span class="str">"""
+    Analyse les coefficients DCT du visage.
+    Les deepfakes GAN génèrent des artefacts aux fréquences spécifiques
+    (souvent liés au stride du réseau de déconvolution).
+    """</span>
+    gray = cv2.<span class="fn">cvtColor</span>(face_patch, cv2.COLOR_BGR2GRAY)
+    gray_float = np.<span class="fn">float32</span>(gray) / <span class="num">255.0</span>
+
+    <span class="cmt"># Appliquer DCT 2D</span>
+    dct = cv2.<span class="fn">dct</span>(gray_float)
+
+    <span class="cmt"># Mesurer l'énergie dans les hautes fréquences</span>
+    h, w = dct.shape
+    high_freq = dct[h//<span class="num">2</span>:, w//<span class="num">2</span>:]
+    energy_ratio = np.<span class="fn">sum</span>(high_freq**<span class="num">2</span>) / (np.<span class="fn">sum</span>(dct**<span class="num">2</span>) + <span class="num">1e-10</span>)
+
+    <span class="kw">return</span> energy_ratio  <span class="cmt"># Élevé → suspect</span></code></pre>
+
+      <h2>Méthode 3 — Analyse du taux de clignement</h2>
+      <p>Les humains clignent des yeux à une fréquence naturelle de 10 à 25 fois par minute.
+      Les vidéos pré-enregistrées ou certains deepfakes présentent des taux anormaux.</p>
+
+      <pre><code>BLINK_RATE_MIN = <span class="num">10</span>   <span class="cmt"># clignements/min minimum normal</span>
+BLINK_RATE_MAX = <span class="num">25</span>   <span class="cmt"># clignements/min maximum normal</span>
+
+EAR_THRESHOLD = <span class="num">0.2</span>   <span class="cmt"># Eye Aspect Ratio : < 0.2 = œil fermé</span>
+
+<span class="kw">def</span> <span class="fn">eye_aspect_ratio</span>(eye_landmarks):
+    <span class="str">"""
+    EAR = (||p2-p6|| + ||p3-p5||) / (2 * ||p1-p4||)
+    Mesure l'ouverture de l'œil via les 6 landmarks de paupière.
+    """</span>
+    A = np.<span class="fn">linalg.norm</span>(eye_landmarks[<span class="num">1</span>] - eye_landmarks[<span class="num">5</span>])
+    B = np.<span class="fn">linalg.norm</span>(eye_landmarks[<span class="num">2</span>] - eye_landmarks[<span class="num">4</span>])
+    C = np.<span class="fn">linalg.norm</span>(eye_landmarks[<span class="num">0</span>] - eye_landmarks[<span class="num">3</span>])
+    <span class="kw">return</span> (A + B) / (<span class="num">2.0</span> * C)
+
+<span class="kw">def</span> <span class="fn">check_blink_rate</span>(blink_count, video_duration_seconds):
+    blinks_per_minute = blink_count / (video_duration_seconds / <span class="num">60</span>)
+    <span class="kw">return</span> BLINK_RATE_MIN <= blinks_per_minute <= BLINK_RATE_MAX</code></pre>
+
+      <h2>Méthode 4 — Score de micro-expressions</h2>
+      <p>Les micro-expressions sont de très brèves expressions faciales (50-500ms) qui apparaissent
+      naturellement. Leur absence ou raideur est un indicateur de vidéo synthétique.</p>
+
+      <pre><code><span class="kw">def</span> <span class="fn">micro_expression_score</span>(landmarks_history):
+    <span class="str">"""
+    Mesure la variabilité naturelle des landmarks sur la durée.
+    Trop de régularité = deepfake ou vidéo figée.
+    """</span>
+    <span class="cmt"># Calculer la variance temporelle de chaque landmark</span>
+    variances = []
+    <span class="kw">for</span> lm_idx <span class="kw">in</span> EXPRESSION_LANDMARKS:
+        positions = [frame[lm_idx] <span class="kw">for</span> frame <span class="kw">in</span> landmarks_history]
+        variances.append(np.<span class="fn">var</span>(positions))
+
+    mean_variance = np.<span class="fn">mean</span>(variances)
+    <span class="cmt"># Score : faible variance = suspect (mouvements trop réguliers)</span>
+    <span class="kw">return</span> mean_variance</code></pre>
+
+      <h2>Méthode 5 — Analyse FFT (module standalone)</h2>
+      <p>Le module <code>anti-deepfake/ai_video_detector.py</code> applique une FFT sur chaque frame
+      pour détecter les fréquences périodiques caractéristiques des artefacts GAN.</p>
+
+      <pre><code><span class="kw">def</span> <span class="fn">detect_gan_frequencies</span>(frame):
+    <span class="str">"""
+    Transformée de Fourier 2D.
+    Les GAN laissent des pics d'énergie à des fréquences régulières
+    correspondant au stride des couches de déconvolution.
+    """</span>
+    gray = cv2.<span class="fn">cvtColor</span>(frame, cv2.COLOR_BGR2GRAY)
+    f = np.fft.<span class="fn">fft2</span>(gray)
+    fshift = np.fft.<span class="fn">fftshift</span>(f)
+    magnitude = <span class="num">20</span> * np.<span class="fn">log</span>(np.<span class="fn">abs</span>(fshift) + <span class="num">1</span>)
+
+    <span class="cmt"># Détecter les pics hors DC dans le spectre</span>
+    dc_removed = magnitude.copy()
+    dc_removed[<span class="fn">center</span>] = <span class="num">0</span>
+
+    peak_ratio = np.<span class="fn">max</span>(dc_removed) / np.<span class="fn">mean</span>(dc_removed)
+    <span class="kw">return</span> peak_ratio  <span class="cmt"># Pic élevé → artefacts GAN possibles</span></code></pre>
+
+      <h2>Décision finale — Agrégation des scores</h2>
+      <p>Les différents scores sont combinés pour prendre une décision finale :</p>
+
+      <pre><code><span class="kw">def</span> <span class="fn">is_deepfake</span>(video_path):
+    scores = {}
+
+    <span class="kw">for</span> frame <span class="kw">in</span> <span class="fn">extract_frames</span>(video_path, sample_rate=<span class="num">5</span>):
+        scores[<span class="str">'noise'</span>]   = <span class="fn">analyze_noise_residuals</span>(frame)
+        scores[<span class="str">'dct'</span>]     = <span class="fn">analyze_dct_coefficients</span>(frame)
+        scores[<span class="str">'blink'</span>]   = <span class="fn">check_blink_rate</span>(blinks, duration)
+        scores[<span class="str">'micro'</span>]   = <span class="fn">micro_expression_score</span>(landmarks_hist)
+
+    <span class="cmt"># Verdict : DEEPFAKE si au moins 2 indicateurs déclenchés</span>
+    suspicious_count = <span class="fn">sum</span>([
+        scores[<span class="str">'noise'</span>] > NOISE_THRESHOLD,
+        scores[<span class="str">'dct'</span>]   > DCT_THRESHOLD,
+        <span class="kw">not</span> scores[<span class="str">'blink'</span>],
+        scores[<span class="str">'micro'</span>] < MICRO_THRESHOLD
+    ])
+
+    <span class="kw">return</span> suspicious_count >= <span class="num">2</span>   <span class="cmt"># Majorité = deepfake</span></code></pre>
+
+      <h2>Limites et recommandations</h2>
+
+      <div class="callout callout-danger">
+        <span class="callout-icon">🔴</span>
+        <div class="callout-body">
+          <p class="callout-title">Limites connues</p>
+          <ul>
+            <li>Les deepfakes très récents (2024+) utilisant des modèles diffusion peuvent échapper à l'analyse DCT</li>
+            <li>Les vidéos très compressées (H.264 agressif) altèrent les résidus de bruit</li>
+            <li>L'analyse du clignement nécessite une vidéo d'au moins 10 secondes pour être fiable</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <p class="callout-title">Pour une sécurité accrue en production</p>
+          <p>Il est recommandé de coupler PAD avec un modèle deepfake supervisé (ex: EfficientNet
+          fine-tuné sur FaceForensics++) pour les cas à fort enjeu de sécurité.</p>
+        </div>
+      </div>
+
+      <div class="page-footer">
+        <a href="algorithm.html">← AI Algorithm</a>
+        <a href="deployment.html">Deployment →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

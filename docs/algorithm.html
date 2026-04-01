@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Algorithm — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html"><span class="logo-badge">PAD</span><span class="logo-version">v1.0</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html" class="active"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> AI Algorithm</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>Algorithme IA — Détection de mouvements</h1>
+      <p class="page-subtitle">Pipeline complet d'analyse de pose 3D de la tête : extraction de landmarks,
+      calcul d'angles d'Euler, machine à états avec hysteresis et scoring du challenge.</p>
+
+      <h2>Vue d'ensemble du pipeline</h2>
+      <div class="diagram">
+        <pre>
+Vidéo MP4
+    │
+    ▼
+┌─────────────────────────────────────────────────────────┐
+│ 1. Prétraitement de chaque frame                        │
+│    • CLAHE (amélioration du contraste)                  │
+│    • Filtre bilatéral (réduction bruit, contours nets) │
+│    • Redimensionnement à 640px de large                 │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 2. Extraction MediaPipe Face Mesh                       │
+│    • 468 landmarks faciaux en coordonnées normalisées   │
+│    • Points clés : nez (4), œil gauche (33), droit (263)│
+│    • Calcul de la distance inter-oculaire               │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 3. Calcul de la pose (projection 3D → 2D)              │
+│    • rel_x = -(nose.x - eye_mid.x) / eye_distance      │
+│    • rel_y = -(nose.y - eye_mid.y) / eye_distance      │
+│    • Coordonnées relatives normalisées par dist. oculaire│
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 4. Lissage du signal                                    │
+│    • Moyenne glissante sur 4 frames (SMOOTHING_FRAMES)  │
+│    • Réduit le bruit capteur caméra                     │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 5. Machine à états (Hysteresis)                         │
+│    • État : CENTER, HAUT, BAS, GAUCHE, DROITE           │
+│    • Double seuil : trigger + zone de centre            │
+│    • Confirmation : 5 frames consécutives (CONFIRM_FRAMES)│
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│ 6. Comparaison avec le challenge                        │
+│    • Liste ordonnée des mouvements détectés             │
+│    • Score = steps validés / steps du challenge         │
+│    • Succès si score ≥ RATIO (défaut 60%)               │
+└─────────────────────────────────────────────────────────┘
+        </pre>
+      </div>
+
+      <h2>Étape 1 — Prétraitement des frames</h2>
+      <p>Chaque frame est prétraitée pour améliorer la robustesse de la détection dans des conditions
+      d'éclairage variables.</p>
+
+      <pre><code><span class="cmt"># CLAHE — Contrast Limited Adaptive Histogram Equalization</span>
+clahe = cv2.<span class="fn">createCLAHE</span>(clipLimit=<span class="num">2.0</span>, tileGridSize=(<span class="num">8</span>,<span class="num">8</span>))
+l_channel = clahe.<span class="fn">apply</span>(l_channel)
+
+<span class="cmt"># Filtre bilatéral — préserve les contours</span>
+processed = cv2.<span class="fn">bilateralFilter</span>(img, d=<span class="num">5</span>, sigmaColor=<span class="num">75</span>, sigmaSpace=<span class="num">75</span>)
+
+<span class="cmt"># Redimensionnement (ratio aspect préservé)</span>
+scale = RESIZE_WIDTH / w  <span class="cmt"># RESIZE_WIDTH = 640</span>
+processed = cv2.<span class="fn">resize</span>(processed, (RESIZE_WIDTH, <span class="fn">int</span>(h * scale)))</code></pre>
+
+      <h2>Étape 2 — MediaPipe Face Mesh</h2>
+      <p>MediaPipe extrait 468 landmarks faciaux en coordonnées normalisées [0, 1] par rapport aux
+      dimensions de la frame.</p>
+
+      <pre><code>face_mesh = mp.solutions.face_mesh.<span class="fn">FaceMesh</span>(
+    static_image_mode=<span class="kw">False</span>,
+    max_num_faces=<span class="num">1</span>,
+    min_detection_confidence=<span class="num">0.4</span>,   <span class="cmt"># Seuil bas pour conserver les frames à faible qualité</span>
+    min_tracking_confidence=<span class="num">0.4</span>
+)
+
+<span class="cmt"># Landmarks clés</span>
+NOSE_TIP   = <span class="num">4</span>    <span class="cmt"># Bout du nez</span>
+LEFT_EYE   = <span class="num">33</span>   <span class="cmt"># Coin interne œil gauche</span>
+RIGHT_EYE  = <span class="num">263</span>  <span class="cmt"># Coin interne œil droit</span></code></pre>
+
+      <h2>Étape 3 — Calcul de la pose relative</h2>
+      <p>Plutôt que des angles d'Euler absolus (sensibles à l'inclinaison de la tête au repos),
+      PAD utilise des <strong>coordonnées relatives normalisées</strong> par la distance inter-oculaire.</p>
+
+      <pre><code><span class="cmt"># Milieu entre les deux yeux (repère de référence)</span>
+eye_mid_x = (left_eye.x + right_eye.x) / <span class="num">2</span>
+eye_mid_y = (left_eye.y + right_eye.y) / <span class="num">2</span>
+
+<span class="cmt"># Distance inter-oculaire (normalisation)</span>
+eye_distance = <span class="fn">sqrt</span>((right_eye.x - left_eye.x)**<span class="num">2</span> + (right_eye.y - left_eye.y)**<span class="num">2</span>)
+
+<span class="cmt"># Position relative du nez par rapport au milieu des yeux</span>
+rel_x = -(nose.x - eye_mid_x) / eye_distance  <span class="cmt"># + = droite, - = gauche</span>
+rel_y = -(nose.y - eye_mid_y) / eye_distance  <span class="cmt"># + = bas, - = haut</span></code></pre>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <p class="callout-title">Pourquoi normaliser par la distance inter-oculaire ?</p>
+          <p>La distance entre les yeux varie selon la distance de l'utilisateur à la caméra.
+          En divisant par cette distance, les coordonnées deviennent invariantes à la distance
+          et représentent de vrais angles relatifs.</p>
+        </div>
+      </div>
+
+      <h2>Étape 4 — Lissage du signal</h2>
+      <p>Une moyenne glissante sur les 4 dernières frames réduit le bruit provenant des micro-vibrations
+      de la caméra et de la latence du détecteur.</p>
+
+      <pre><code>SMOOTHING_FRAMES = <span class="num">4</span>
+
+<span class="cmt"># Buffer circulaire des dernières positions</span>
+x_history = deque(maxlen=SMOOTHING_FRAMES)
+y_history = deque(maxlen=SMOOTHING_FRAMES)
+
+x_history.append(rel_x)
+y_history.append(rel_y)
+
+smooth_x = <span class="fn">mean</span>(x_history)
+smooth_y = <span class="fn">mean</span>(y_history)</code></pre>
+
+      <h2>Étape 5 — Machine à états avec hysteresis</h2>
+      <p>L'hysteresis est essentielle pour éviter les oscillations rapides autour du seuil.
+      Le système utilise des <strong>seuils asymétriques</strong> : un seuil de déclenchement haut
+      et une zone centrale plus petite pour sortir de l'état.</p>
+
+      <h3>Seuils de détection</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Paramètre</th><th>Valeur</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td><code>X_THRESHOLD</code></td><td><code>0.45</code></td><td>Déclenchement mouvement horizontal (GAUCHE/DROITE)</td></tr>
+            <tr><td><code>Y_DOWN</code></td><td><code>0.32</code></td><td>Déclenchement mouvement vers le bas</td></tr>
+            <tr><td><code>Y_UP</code></td><td><code>-0.08</code></td><td>Déclenchement mouvement vers le haut (asymétrique)</td></tr>
+            <tr><td><code>X_CENTER_ZONE</code></td><td><code>0.28</code></td><td>Zone morte horizontale (retour au centre)</td></tr>
+            <tr><td><code>Y_CENTER_DOWN</code></td><td><code>0.18</code></td><td>Zone morte basse</td></tr>
+            <tr><td><code>Y_CENTER_UP</code></td><td><code>-0.02</code></td><td>Zone morte haute</td></tr>
+            <tr><td><code>CONFIRM_FRAMES</code></td><td><code>5</code></td><td>Frames consécutives pour confirmer un état</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <p class="callout-title">Asymétrie HAUT/BAS</p>
+          <p><code>Y_UP = -0.08</code> est intentionnellement plus petit que <code>Y_DOWN = 0.32</code>
+          car lever la tête cache progressivement le nez derrière les plans du visage, ce qui réduit
+          la sensibilité. Le seuil abaissé compense cette perte de signal.</p>
+        </div>
+      </div>
+
+      <h3>Logique de transition</h3>
+      <pre><code><span class="kw">class</span> <span class="type">State</span>:
+    CENTER = <span class="str">"CENTER"</span>
+    HAUT   = <span class="str">"HAUT"</span>
+    BAS    = <span class="str">"BAS"</span>
+    GAUCHE = <span class="str">"GAUCHE"</span>
+    DROITE = <span class="str">"DROITE"</span>
+
+<span class="kw">def</span> <span class="fn">next_state</span>(x, y, current_state):
+    <span class="kw">if</span> current_state == State.CENTER:
+        <span class="cmt"># Transitions depuis CENTER</span>
+        <span class="kw">if</span>   x >  X_THRESHOLD:  <span class="kw">return</span> State.DROITE
+        <span class="kw">elif</span> x < -X_THRESHOLD:  <span class="kw">return</span> State.GAUCHE
+        <span class="kw">elif</span> y >  Y_DOWN:        <span class="kw">return</span> State.BAS
+        <span class="kw">elif</span> y <  Y_UP:          <span class="kw">return</span> State.HAUT
+        <span class="kw">return</span> State.CENTER
+
+    <span class="kw">else</span>:
+        <span class="cmt"># Retour au centre uniquement depuis la zone morte</span>
+        in_center = (
+            -X_CENTER_ZONE <= x <= X_CENTER_ZONE <span class="kw">and</span>
+            Y_CENTER_UP    <= y <= Y_CENTER_DOWN
+        )
+        <span class="kw">return</span> State.CENTER <span class="kw">if</span> in_center <span class="kw">else</span> current_state</code></pre>
+
+      <h3>Confirmation par frames consécutives</h3>
+      <pre><code><span class="cmt"># Un changement d'état n'est enregistré que si stable sur N frames</span>
+<span class="kw">if</span> candidate_state == prev_candidate:
+    confirm_counter += <span class="num">1</span>
+<span class="kw">else</span>:
+    confirm_counter = <span class="num">0</span>
+    prev_candidate = candidate_state
+
+<span class="kw">if</span> confirm_counter >= CONFIRM_FRAMES:
+    <span class="kw">if</span> candidate_state != current_state:
+        <span class="fn">record_transition</span>(candidate_state)
+    current_state = candidate_state
+    confirm_counter = <span class="num">0</span></code></pre>
+
+      <h2>Étape 6 — Scoring du challenge</h2>
+      <p>Une fois la vidéo entièrement analysée, la liste des mouvements détectés est comparée
+      séquentiellement au challenge.</p>
+
+      <pre><code><span class="kw">def</span> <span class="fn">score_challenge</span>(detected_moves, challenge):
+    <span class="str">"""
+    Parcourt le challenge dans l'ordre.
+    Pour chaque étape du challenge, cherche le prochain mouvement
+    correspondant dans la liste détectée (ordre préservé).
+    """</span>
+    matching = <span class="num">0</span>
+    det_idx = <span class="num">0</span>
+
+    <span class="kw">for</span> step <span class="kw">in</span> challenge:
+        <span class="kw">while</span> det_idx < <span class="fn">len</span>(detected_moves):
+            <span class="kw">if</span> detected_moves[det_idx].direction == step:
+                matching += <span class="num">1</span>
+                det_idx += <span class="num">1</span>
+                <span class="kw">break</span>
+            det_idx += <span class="num">1</span>
+
+    score = matching / <span class="fn">len</span>(challenge)
+    <span class="kw">return</span> score >= RATIO   <span class="cmt"># RATIO = 0.60 par défaut</span></code></pre>
+
+      <div class="callout callout-success">
+        <span class="callout-icon">✅</span>
+        <div class="callout-body">
+          <p class="callout-title">Tolérance configurable</p>
+          <p>Le paramètre <code>RATIO</code> (défaut 0.60, soit 60%) peut être ajusté via la variable
+          d'environnement <code>RATIO</code> dans <code>docker-compose.yaml</code>. Une valeur plus
+          haute (ex: 0.85) est plus stricte mais peut rejeter des utilisateurs légitimes.</p>
+        </div>
+      </div>
+
+      <h2>Gestion de la perte de visage</h2>
+      <p>Si MediaPipe ne détecte plus de visage pendant plusieurs frames, le système entre en
+      mode "grace period" avant de réinitialiser l'état.</p>
+
+      <pre><code>FACE_GRACE_FRAMES = <span class="num">20</span>   <span class="cmt"># ~0.67s à 30fps</span>
+
+<span class="kw">if</span> no_face_detected:
+    grace_counter += <span class="num">1</span>
+    <span class="kw">if</span> grace_counter > FACE_GRACE_FRAMES:
+        <span class="cmt"># Réinitialiser la machine à états</span>
+        current_state = State.CENTER
+        confirm_counter = <span class="num">0</span>
+        grace_counter = <span class="num">0</span>
+<span class="kw">else</span>:
+    grace_counter = <span class="num">0</span></code></pre>
+
+      <h2>Paramètres de tuning</h2>
+      <p>Tous les paramètres ci-dessous se trouvent en tête de <code>ia_worker/ai_worker.py</code> :</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Paramètre</th><th>Défaut</th><th>Impact d'une augmentation</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>X_THRESHOLD</code></td><td>0.45</td><td>Nécessite des mouvements horizontaux plus amples</td></tr>
+            <tr><td><code>Y_DOWN</code></td><td>0.32</td><td>Nécessite un hochement vers le bas plus prononcé</td></tr>
+            <tr><td><code>Y_UP</code></td><td>-0.08</td><td>Seuil moins sensible vers le haut (valeur plus négative)</td></tr>
+            <tr><td><code>SMOOTHING_FRAMES</code></td><td>4</td><td>Signal plus lisse mais réponse plus lente</td></tr>
+            <tr><td><code>CONFIRM_FRAMES</code></td><td>5</td><td>Confirmation plus robuste mais plus lente</td></tr>
+            <tr><td><code>FACE_GRACE_FRAMES</code></td><td>20</td><td>Tolère plus longtemps la perte de visage</td></tr>
+            <tr><td><code>RATIO</code></td><td>0.60</td><td>Plus strict, moins de faux positifs</td></tr>
+            <tr><td><code>RESIZE_WIDTH</code></td><td>640</td><td>Meilleure résolution mais plus lent</td></tr>
+            <tr><td><code>CLAHE_CLIP</code></td><td>2.0</td><td>Contraste plus fort, peut amplifier le bruit</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="page-footer">
+        <a href="api.html">← API Reference</a>
+        <a href="deepfake.html">Deepfake Detection →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

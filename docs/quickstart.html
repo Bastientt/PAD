@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Start — PAD Documentation</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html">
+        <span class="logo-badge">PAD</span>
+        <span class="logo-version">v1.0</span>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="index.html"><span class="icon">🏠</span> Overview</a>
+        <a href="quickstart.html" class="active"><span class="icon">⚡</span> Quick Start</a>
+        <a href="architecture.html"><span class="icon">🏗️</span> Architecture</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="api.html"><span class="icon">🔌</span> API Reference</a>
+        <a href="algorithm.html"><span class="icon">🧠</span> AI Algorithm</a>
+        <a href="deepfake.html"><span class="icon">🕵️</span> Deepfake Detection</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Deployment</div>
+        <a href="deployment.html"><span class="icon">🐳</span> Docker & Deploy</a>
+        <a href="configuration.html"><span class="icon">⚙️</span> Configuration</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-breadcrumb">PAD Docs <span>/</span> Quick Start</div>
+      <div class="topbar-links">
+        <a href="https://github.com/Bastientt/PAD" target="_blank">GitHub</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <h1>Quick Start</h1>
+      <p class="page-subtitle">Démarrer l'intégralité de la stack PAD en quelques commandes.</p>
+
+      <h2>Prérequis</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Outil</th><th>Version minimale</th><th>Utilisation</th></tr></thead>
+          <tbody>
+            <tr><td><code>Docker</code></td><td>24.0+</td><td>Conteneurs applicatifs</td></tr>
+            <tr><td><code>Docker Compose</code></td><td>v2.20+</td><td>Orchestration multi-services</td></tr>
+            <tr><td><code>Git</code></td><td>2.x</td><td>Cloner le dépôt</td></tr>
+            <tr><td>Android SDK (optionnel)</td><td>API 24+</td><td>Compiler Ring3_App</td></tr>
+            <tr><td><code>Rust</code> (optionnel)</td><td>1.75+</td><td>Dev backend sans Docker</td></tr>
+            <tr><td><code>Python</code> (optionnel)</td><td>3.11+</td><td>Dev AI worker sans Docker</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Démarrage rapide — Full Stack Docker</h2>
+
+      <p>La méthode recommandée pour lancer PAD est via Docker Compose, qui démarre automatiquement
+      tous les services (MinIO, Redis, Backend, AI Worker).</p>
+
+      <ol class="steps">
+        <li>
+          <div class="step-body">
+            <div class="step-title">Cloner le dépôt</div>
+            <div class="step-desc">
+              <pre><code>git clone git@github.com:Bastientt/PAD.git
+cd PAD</code></pre>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Générer les clés JWT EdDSA</div>
+            <div class="step-desc">
+              Les clés doivent être présentes avant de démarrer le backend.
+              <pre><code><span class="cmt"># Créer le dossier des clés</span>
+mkdir -p backend/key
+
+<span class="cmt"># Générer la clé privée Ed25519</span>
+openssl genpkey -algorithm ED25519 -out backend/key/private_key.pem
+
+<span class="cmt"># Extraire la clé publique</span>
+openssl pkey -in backend/key/private_key.pem -pubout -out backend/key/public_key.pem</code></pre>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Lancer la stack complète</div>
+            <div class="step-desc">
+              <pre><code>docker compose up --build</code></pre>
+              <p style="margin-top:8px; font-size:13px; color: var(--text-muted)">
+                Le premier build peut prendre 3-5 minutes (compilation Rust + download des images Python/MinIO).
+              </p>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Vérifier que les services sont actifs</div>
+            <div class="step-desc">
+              <div class="table-wrapper">
+                <table>
+                  <thead><tr><th>Service</th><th>URL / Port</th><th>Credentials</th></tr></thead>
+                  <tbody>
+                    <tr><td>Backend API</td><td><code>http://localhost:8080</code></td><td>—</td></tr>
+                    <tr><td>MinIO Console</td><td><code>http://localhost:9001</code></td><td><code>minioadmin / minioadmin</code></td></tr>
+                    <tr><td>MinIO S3 API</td><td><code>http://localhost:9000</code></td><td><code>minioadmin / minioadmin</code></td></tr>
+                    <tr><td>Redis</td><td><code>localhost:6379</code></td><td>—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Tester le backend</div>
+            <div class="step-desc">
+              <pre><code><span class="cmt"># Obtenir un token JWT</span>
+curl http://localhost:8080/Authentificate -c cookies.txt
+
+<span class="cmt"># Initialiser une session (requiert le cookie)</span>
+curl http://localhost:8080/init-sesssion -b cookies.txt</code></pre>
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body">
+          <p class="callout-title">MinIO : créer le bucket manuellement</p>
+          <p>Au premier démarrage, ouvrez <code>http://localhost:9001</code>, connectez-vous avec
+          <code>minioadmin/minioadmin</code>, et créez un bucket nommé <code>pad-bucket</code> avec
+          accès public en lecture.</p>
+        </div>
+      </div>
+
+      <h2>Développement sans Docker</h2>
+
+      <h3>Backend Rust</h3>
+      <pre><code>cd backend/
+
+<span class="cmt"># Variables d'environnement nécessaires</span>
+export REDIS_URL=redis://localhost:6379
+export AWS_ACCESS_KEY_ID=minioadmin
+export AWS_SECRET_ACCESS_KEY=minioadmin
+
+<span class="cmt"># Compiler et lancer</span>
+cargo build --release
+./target/release/mon_projet_ws</code></pre>
+
+      <h3>AI Worker Python</h3>
+      <pre><code>cd ia_worker/
+
+<span class="cmt"># Installer les dépendances</span>
+pip install \
+  opencv-python-headless==4.8.0.76 \
+  numpy==1.24.3 \
+  mediapipe==0.10.11 \
+  protobuf==3.20.3 \
+  redis \
+  boto3 \
+  absl-py attrs flatbuffers matplotlib
+
+<span class="cmt"># Variables d'environnement</span>
+export REDIS_URL=redis://localhost:6379
+export AWS_ACCESS_KEY_ID=minioadmin
+export AWS_SECRET_ACCESS_KEY=minioadmin
+export RATIO=0.70
+
+python ai_worker.py</code></pre>
+
+      <h3>Application Android</h3>
+      <pre><code>cd Ring3_App/
+
+<span class="cmt"># Compiler le projet</span>
+./gradlew assembleDebug
+
+<span class="cmt"># Installer sur un device connecté ou émulateur</span>
+./gradlew installDebug</code></pre>
+
+      <div class="callout callout-warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <p class="callout-title">URL du backend dans l'app Android</p>
+          <p>L'application pointe par défaut vers <code>http://10.0.2.2:8080</code> (adresse host
+          depuis l'émulateur Android). Pour un device physique, modifier l'URL dans
+          <code>MainActivity.kt</code> pour pointer vers l'IP de votre machine.</p>
+        </div>
+      </div>
+
+      <h2>Vérification end-to-end</h2>
+      <p>Une fois tous les services démarrés, le flux complet est :</p>
+      <ol>
+        <li>L'app Android appelle <code>GET /Authentificate</code> → reçoit un cookie JWT</li>
+        <li>L'app appelle <code>GET /init-sesssion</code> → reçoit une URL S3 pré-signée + un challenge</li>
+        <li>L'utilisateur filme les mouvements demandés</li>
+        <li>La vidéo est uploadée sur MinIO via l'URL pré-signée</li>
+        <li>L'app envoie <code>UploadDone|challenge</code> via WebSocket</li>
+        <li>Le backend publie le job sur Redis <code>ia_jobs</code></li>
+        <li>L'AI Worker analyse la vidéo et publie le résultat sur <code>ia_results</code></li>
+        <li>Le backend retransmet le résultat à l'app via WebSocket</li>
+      </ol>
+
+      <div class="page-footer">
+        <a href="index.html">← Overview</a>
+        <a href="architecture.html">Architecture →</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
